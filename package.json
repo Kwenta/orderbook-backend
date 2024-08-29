@@ -1,12 +1,16 @@
 {
   "name": "orderbook-backend",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "test": "vitest"
   },
   "dependencies": {
+    "@hono/swagger-ui": "^0.4.1",
+    "@hono/zod-openapi": "^0.16.0",
     "@types/jest": "^29.5.12",
     "hono": "^4.5.9",
-    "vitest": "^2.0.5"
+    "vitest": "^2.0.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bun": "latest",
