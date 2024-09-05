@@ -1,3 +1,5 @@
+import { markets, type Market } from "../constants";
+
 type Hex = `0x${string}`;
 
 type LimitOrder = { id: string; signature: Hex; user: Hex; nonce: number };
@@ -19,7 +21,7 @@ const invalidateNonce = async (user: Hex, nonce: number) => {
 export class MatchingEngine {
   orders: LimitOrder[];
 
-  constructor() {
+  constructor(public readonly market: Market) {
     this.orders = [];
   }
 
@@ -57,4 +59,10 @@ export class MatchingEngine {
   }
 
   checkForPossibleSettles() {}
+}
+
+export const engines = new Map<Market, MatchingEngine>();
+
+for (const market of markets) {
+  engines.set(market, new MatchingEngine(market));
 }
