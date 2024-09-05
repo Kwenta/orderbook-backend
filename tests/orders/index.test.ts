@@ -1,5 +1,4 @@
-import { testClient } from "hono/testing";
-import app from "../../../src/index";
+import { app } from "../../../src/index";
 
 it("Adds an order", async () => {
   const market = "test-market";
