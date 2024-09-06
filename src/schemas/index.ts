@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { ZodSchema } from "zod";
 
 export const marketId = z.string().openapi({
   example: "123",
@@ -7,6 +8,11 @@ export const marketId = z.string().openapi({
 export const orderId = z.string().openapi({
   example: "123",
 });
+
+export const hexString = z
+  .string()
+  .refine((s) => s.startsWith("0x"))
+  .transform((s) => s as `0x${string}`);
 
 export const bodySchema = (schema: z.ZodSchema) => ({
   content: {
@@ -46,3 +52,5 @@ export const badRequestSchema = {
   },
   description: "The request was malformed",
 };
+
+export type Body<T extends { body: { content: { "application/json": { schema: ZodSchema } } } }> = z.infer<T["body"]["content"]["application/json"]["schema"]>;
