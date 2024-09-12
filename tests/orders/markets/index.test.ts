@@ -1,4 +1,9 @@
 import { app } from "../../../src/app";
+import { TRACKING_CODE } from "../../../src/constants";
+
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
 
 const addOrder = async (market: string, nonce: number, signature: string) => {
   const res = await app.request(`/orders/market/${market}`, {
@@ -13,7 +18,18 @@ it("Adds an order", async () => {
   const market = "1";
   const res = await app.request(`/orders/market/${market}`, {
     method: "POST",
-    body: JSON.stringify({ nonce: 1, signature: "0x" }),
+    body: JSON.stringify({
+      order: {
+        nonce: 1,
+        accountId: -1n,
+        price: 1n,
+        amount: 1n,
+        limitOrderMaker: true,
+        expiration: 1n,
+        trackingCode: TRACKING_CODE,
+      },
+      signature: "0x",
+    }),
   });
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual({ success: true, orderId: "0" });
