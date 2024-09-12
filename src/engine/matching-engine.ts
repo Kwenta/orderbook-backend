@@ -1,6 +1,7 @@
 import { Order } from "schemas";
-import { markets, type Market } from "../constants";
+import { markets } from "../constants";
 import { checkSignatureOfOrder } from "signing";
+import { Market } from "../types";
 
 type Hex = `0x${string}`;
 
@@ -10,7 +11,7 @@ const checkOrderSignature = async (order: LimitOrder) => {
   return checkSignatureOfOrder(
     order.order,
     "0x",
-    -1n,
+    BigInt(-1),
     order.user,
     order.signature
   );
@@ -18,7 +19,7 @@ const checkOrderSignature = async (order: LimitOrder) => {
 
 const checkDeleteSignature = async (lo: LimitOrder) => {
   const newOrder = structuredClone(lo);
-  newOrder.order.amount = 0n;
+  newOrder.order.amount = BigInt(0);
   return await checkOrderSignature(newOrder);
 };
 
@@ -80,7 +81,9 @@ export class MatchingEngine {
     }
     await checkDeleteSignature(order);
     await invalidateNonce(order.user, order.order.nonce);
-    delete offersOfUser[order.user][order.id];
+    if (order.id) {
+      delete offersOfUser[order.user][order.id];
+    }
     this.orders = this.orders.filter((o) => o.id !== orderId);
   }
 

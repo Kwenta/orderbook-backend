@@ -1,7 +1,12 @@
 import { OpenAPIHono, z, createRoute } from "@hono/zod-openapi";
-import { badRequestSchema, marketId, notFoundSchema, okSchema } from "../../schemas";
+import {
+  badRequestSchema,
+  marketId,
+  notFoundSchema,
+  okSchema,
+} from "../../schemas";
 import { engines } from "../../engine/matching-engine";
-import type { Market } from "../../constants";
+import type { Market } from "../../types";
 
 export const bookRouter = new OpenAPIHono();
 
@@ -39,6 +44,9 @@ bookRouter.openapi(route, (c) => {
 
   const orders = engine.getOrders();
 
-  const slicedOrders = orders.slice(Number(offset), Number(offset) + Number(limit));
+  const slicedOrders = orders.slice(
+    Number(offset),
+    Number(offset) + Number(limit)
+  );
   return c.json({ market, orders: slicedOrders }, 200);
 });

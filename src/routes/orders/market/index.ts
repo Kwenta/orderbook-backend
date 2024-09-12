@@ -1,18 +1,29 @@
 import { OpenAPIHono, z, createRoute } from "@hono/zod-openapi";
-import { badRequestSchema, bodySchema, hexString, marketId, notFoundSchema, okSchema, orderId } from "../../../schemas";
+import {
+  badRequestSchema,
+  bodySchema,
+  hexString,
+  marketId,
+  notFoundSchema,
+  okSchema,
+  orderId,
+  orderSchema as oSchema,
+} from "../../../schemas";
 import { engines } from "../../../engine/matching-engine";
-import type { Market } from "../../../constants";
 import { makeSafe } from "../../../utils";
 import type { Body } from "../../../schemas";
+import { Market } from "../../../types";
 
 export const marketOrderRouter = new OpenAPIHono();
 
 const orderSchema = z
   .object({
     id: z.string().describe("The unique identifier of the order"),
-    nonce: z.number().describe("The nonce of the order"),
+    order: oSchema,
     user: hexString,
-    signature: hexString.refine((s) => s.length === 132, { message: "Signature must be 132 characters long" }),
+    signature: hexString.refine((s) => s.length === 132, {
+      message: "Signature must be 132 characters long",
+    }),
   })
   .openapi("SignedOrder");
 
@@ -26,20 +37,20 @@ const addOrderSchema = {
 };
 
 const updateOrderSchema = {
-  params: z.object({ market: marketId, orderId: orderId }),
+  params: z.object({ market: marketId, orderId }),
   body: {
     content: {
-      "application/json": { schema: orderSchema.partial() },
+      "application/json": { schema: orderSchema },
     },
   },
 };
 
 const getOrderSchema = {
-  params: z.object({ market: marketId, orderId: orderId }),
+  params: z.object({ market: marketId, orderId }),
 };
 
 const deleteOrderSchema = {
-  params: z.object({ market: marketId, orderId: orderId }),
+  params: z.object({ market: marketId, orderId }),
   body: bodySchema(z.object({ signature: z.string() })),
 };
 
@@ -50,8 +61,12 @@ const addRoute = createRoute({
   responses: {
     200: okSchema(
       z.object({
-        success: z.boolean({ description: "If the order was added to the book" }),
-        orderId: z.string({ description: "The unique identifier of the order" }),
+        success: z.boolean({
+          description: "If the order was added to the book",
+        }),
+        orderId: z.string({
+          description: "The unique identifier of the order",
+        }),
       }),
       "Add an order to the book for a specific market"
     ),
@@ -65,7 +80,10 @@ const getRoute = createRoute({
   path: "/{market}/{orderId}",
   request: getOrderSchema,
   responses: {
-    200: okSchema(z.object({}).describe("Order data"), "Get the data for an order"),
+    200: okSchema(
+      z.object({}).describe("Order data"),
+      "Get the data for an order"
+    ),
     404: notFoundSchema("The order was not found"),
     400: badRequestSchema,
   },
@@ -78,7 +96,9 @@ const deleteRoute = createRoute({
   responses: {
     200: okSchema(
       z.object({
-        success: z.boolean({ description: "If the order was removed from the book" }),
+        success: z.boolean({
+          description: "If the order was removed from the book",
+        }),
       }),
       "Remove an order from the book of a specific market"
     ),
@@ -107,7 +127,9 @@ marketOrderRouter.openapi(
   addRoute,
   makeSafe(async (c) => {
     const { market } = c.req.param();
-    const order = (await c.req.json()) as Body<typeof addOrderSchema>;
+    const { order, signature, user } = (await c.req.json()) as Body<
+      typeof addOrderSchema
+    >;
 
     if (!market) return c.json({ message: "No market was provided" }, 400);
     if (!order) return c.json({ message: "No order was provided" }, 400);
@@ -115,7 +137,7 @@ marketOrderRouter.openapi(
     const engine = engines.get(market as Market);
     if (!engine) return c.json({ message: "The market was not found" }, 404);
 
-    const orderId = await engine.addOrder(order);
+    const orderId = await engine.addOrder({ order, user, signature });
 
     return c.json({ success: true, orderId }, 200);
   })
@@ -141,7 +163,9 @@ marketOrderRouter.openapi(
   updateRoute,
   makeSafe(async (c) => {
     const { market, orderId } = c.req.param();
-    const newOrder = (await c.req.json()) as Body<typeof updateOrderSchema> & { signature: `0x${string}` };
+    const newOrder = (await c.req.json()) as Body<typeof updateOrderSchema> & {
+      signature: `0x${string}`;
+    };
 
     if (!market) return c.json({ message: "No market was provided" }, 400);
     if (!orderId) return c.json({ message: "No order was provided" }, 400);
@@ -150,7 +174,7 @@ marketOrderRouter.openapi(
     const engine = engines.get(market as Market);
     if (!engine) return c.json({ message: "The market was not found" }, 404);
 
-    await engine.updateOrder(newOrder);
+    await engine.updateOrder({ ...newOrder, id: orderId });
 
     return c.json({ success: true }, 200);
   })
@@ -160,11 +184,14 @@ marketOrderRouter.openapi(
   deleteRoute,
   makeSafe(async (c) => {
     const { market, orderId } = c.req.param();
-    const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>;
+    const { signature } = (await c.req.json()) as Body<
+      typeof deleteOrderSchema
+    >;
 
     if (!market) return c.json({ message: "No market was provided" }, 400);
     if (!orderId) return c.json({ message: "No order was provided" }, 400);
-    if (!signature) return c.json({ message: "No signature was provided" }, 400);
+    if (!signature)
+      return c.json({ message: "No signature was provided" }, 400);
 
     const engine = engines.get(market as Market);
     if (!engine) return c.json({ message: "The market was not found" }, 404);

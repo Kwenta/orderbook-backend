@@ -1,15 +1,28 @@
 import { OpenAPIHono, z, createRoute } from "@hono/zod-openapi";
-import { badRequestSchema, bodySchema, hexString, marketId, notFoundSchema, okSchema, orderId } from "../../../schemas";
+import {
+  badRequestSchema,
+  bodySchema,
+  hexString,
+  marketId,
+  notFoundSchema,
+  okSchema,
+  orderId,
+  orderSchema as oSchema,
+  zodAddress,
+} from "../../../schemas";
 import { engines, offersOfUser } from "../../../engine/matching-engine";
-import type { Market } from "../../../constants";
+import type { Market } from "../../../types";
 import type { Body } from "../../../schemas";
 export const userOrderRouter = new OpenAPIHono();
 
 const orderSchema = z
   .object({
     id: z.string().describe("The unique identifier of the order"),
-    nonce: z.number().describe("The nonce of the order"),
-    signature: hexString.refine((s) => s.length === 132, { message: "Signature must be 132 characters long" }),
+    user: zodAddress(),
+    order: oSchema,
+    signature: hexString.refine((s) => s.length === 132, {
+      message: "Signature must be 132 characters long",
+    }),
   })
   .openapi("SignedOrder");
 
@@ -17,7 +30,7 @@ const updateOrderSchema = {
   params: z.object({ market: marketId, orderId: orderId }),
   body: {
     content: {
-      "application/json": { schema: orderSchema.partial() },
+      "application/json": { schema: orderSchema },
     },
   },
 };
@@ -32,7 +45,10 @@ const getRoute = createRoute({
   path: "/{user}/{orderId}",
   request: deleteOrderSchema,
   responses: {
-    200: okSchema(z.object({}).describe("Order data"), "Get the data for an order"),
+    200: okSchema(
+      z.object({}).describe("Order data"),
+      "Get the data for an order"
+    ),
     404: notFoundSchema("The order was not found"),
     400: badRequestSchema,
   },
@@ -45,7 +61,9 @@ const deleteRoute = createRoute({
   responses: {
     200: okSchema(
       z.object({
-        success: z.boolean({ description: "If the order was removed from the book" }),
+        success: z.boolean({
+          description: "If the order was removed from the book",
+        }),
       }),
       "Remove an order from the book of a specific market"
     ),
@@ -100,7 +118,7 @@ userOrderRouter.openapi(updateRoute, async (c) => {
 
   const engine = engines.get(market as Market);
   if (!engine) return c.json({ message: "The market was not found" }, 404);
-  await engine.updateOrder(newOrder as Body<typeof updateOrderSchema> & { signature: `0x${string}` });
+  await engine.updateOrder({ ...newOrder, id: orderId });
 
   return c.json({ success: true }, 200);
 });

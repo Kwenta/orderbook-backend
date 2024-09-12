@@ -8,16 +8,12 @@ import {
   zeroAddress,
 } from "viem";
 import { Order } from "./schemas";
-import { ORDER_TYPEHASH } from "./constants";
-
-const DOMAIN_HASH = keccak256(
-  toBytes(
-    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-  )
-);
-
-const NAME_HASH = keccak256(toBytes("SyntheticPerpetualFutures"));
-const VERSION_HASH = keccak256(toBytes("1"));
+import {
+  DOMAIN_HASH,
+  NAME_HASH,
+  ORDER_TYPEHASH,
+  VERSION_HASH,
+} from "./constants";
 
 const getDomain = (chainId: bigint, contractAddress: `0x${string}`) => {
   return keccak256(

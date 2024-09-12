@@ -3,6 +3,7 @@ import { TRACKING_CODE } from "../constants";
 import { checksumAddress, isAddress } from "viem";
 import * as viem from "viem";
 import { ZodSchema } from "zod";
+import { Sizes } from "../types";
 
 export const orderId = z.string().openapi({
   example: "123",
@@ -15,40 +16,6 @@ export const hexString = z
 
 export const zodAddress = () =>
   hexString.refine((s) => isAddress(s)).transform((s) => checksumAddress(s));
-
-type Sizes =
-  | 8
-  | 16
-  | 24
-  | 32
-  | 40
-  | 48
-  | 56
-  | 64
-  | 72
-  | 80
-  | 88
-  | 96
-  | 104
-  | 112
-  | 120
-  | 128
-  | 136
-  | 144
-  | 152
-  | 160
-  | 168
-  | 176
-  | 184
-  | 192
-  | 200
-  | 208
-  | 216
-  | 224
-  | 232
-  | 240
-  | 248
-  | 256;
 
 export const uint = (n: Sizes = 256) => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
@@ -65,7 +32,7 @@ export const int = (n: Sizes = 256) => {
 
 export const marketId = uint(128);
 
-export const order = z.object({
+export const orderSchema = z.object({
   accountId: uint(128),
   marketId: uint(128),
   relayer: zodAddress(),
@@ -77,7 +44,7 @@ export const order = z.object({
   trackingCode: hexString.refine((s) => s.length === 64 && s === TRACKING_CODE),
 });
 
-export type Order = z.infer<typeof order>;
+export type Order = z.infer<typeof orderSchema>;
 
 export const bodySchema = (schema: z.ZodSchema) => ({
   content: {
