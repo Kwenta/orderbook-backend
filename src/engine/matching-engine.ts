@@ -1,6 +1,6 @@
 import { Order } from "schemas";
 import { markets } from "../constants";
-import { checkSignatureOfOrder } from "signing";
+import { checkSignatureOfOrder } from "../signing";
 import { Market } from "../types";
 
 type Hex = `0x${string}`;
