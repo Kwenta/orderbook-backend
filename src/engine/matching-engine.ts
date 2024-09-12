@@ -16,17 +16,10 @@ const checkOrderSignature = async (order: LimitOrder) => {
   );
 };
 
-const checkDeleteSignature = (lo: LimitOrder) => {
+const checkDeleteSignature = async (lo: LimitOrder) => {
   const newOrder = structuredClone(lo);
   newOrder.order.amount = 0n;
-  return checkOrderSignature(newOrder);
-};
-
-const checkUpdateSignature = (
-  order: Partial<LimitOrder> & { signature: Hex }
-) => {
-  // TODO: Implement
-  return order.signature.startsWith("0x");
+  return await checkOrderSignature(newOrder);
 };
 
 const invalidateNonce = async (user: Hex, nonce: bigint) => {
@@ -66,10 +59,16 @@ export class MatchingEngine {
     return this.orders.filter((o) => o.user === user);
   }
 
-  async updateOrder(newOrder: Partial<LimitOrder> & { signature: Hex }) {
-    await checkUpdateSignature(newOrder);
+  async updateOrder(newOrder: LimitOrder & { id: string }) {
+    await checkOrderSignature(newOrder);
     const order = this.orders.find((o) => o.id === newOrder.id);
     if (order) {
+      const allPropsSame = Object.keys(order).every(
+        (k) => order[k as keyof LimitOrder] === newOrder[k as keyof LimitOrder]
+      );
+      if (allPropsSame) {
+        throw new Error("Order not changed");
+      }
       Object.assign(order, newOrder);
     }
   }
