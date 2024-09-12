@@ -1,7 +1,7 @@
 import { app } from "../../src/app";
 
 it("Is able to get the orders on the book", async () => {
-  const market = "test-market";
+  const market = "1";
 
   const res = await app.request(`/book/${market}`);
   expect(res.status).toBe(200);

@@ -2,7 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { TRACKING_CODE } from "../constants";
 import { checksumAddress, isAddress } from "viem";
 import * as viem from "viem";
-import { ZodSchema } from "zod";
+import { ZodBigInt, ZodEffects, ZodSchema } from "zod";
 import { Sizes } from "../types";
 
 export const orderId = z.string().openapi({
@@ -17,17 +17,17 @@ export const hexString = z
 export const zodAddress = () =>
   hexString.refine((s) => isAddress(s)).transform((s) => checksumAddress(s));
 
-export const uint = (n: Sizes = 256) => {
+export const uint = (n: Sizes = 256): ZodEffects<ZodBigInt, bigint, bigint> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxUint${n}`];
-  return z.bigint().refine((x) => x > BigInt(0) && x < maxValue);
+  return z.coerce.bigint().refine((x) => x > BigInt(0) && x < maxValue);
 };
 
-export const int = (n: Sizes = 256) => {
+export const int = (n: Sizes = 256): ZodEffects<ZodBigInt, bigint, bigint> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxInt${n}`];
   const minValue = viem[`minInt${n}`];
-  return z.bigint().refine((x) => x > minValue && x < maxValue);
+  return z.coerce.bigint().refine((x) => x > minValue && x < maxValue);
 };
 
 export const marketId = uint(128);

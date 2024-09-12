@@ -2,7 +2,7 @@ import { keccak256, toBytes, stringToHex } from "viem";
 
 export const TRACKING_CODE = stringToHex("KWENTA", { size: 32 });
 
-export const markets = ["test-market"] as const;
+export const markets = ["1"] as const;
 
 export const ORDER_TYPEHASH = keccak256(
   toBytes(
