@@ -83,7 +83,7 @@ const hashOfOrder = (
   return digest;
 };
 
-const checkSignatureOfOrder = async (
+export const checkSignatureOfOrder = async (
   order: Order,
   contractAddress: `0x${string}`,
   chainId: bigint,

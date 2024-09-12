@@ -1,25 +1,35 @@
+import { Order } from "schemas";
 import { markets, type Market } from "../constants";
+import { checkSignatureOfOrder } from "signing";
 
 type Hex = `0x${string}`;
 
-type LimitOrder = { id: string; signature: Hex; user: Hex; nonce: number };
+type LimitOrder = { id?: string; signature: Hex; user: Hex; order: Order };
 
-const checkOrderSignature = (order: LimitOrder) => {
+const checkOrderSignature = async (order: LimitOrder) => {
+  return checkSignatureOfOrder(
+    order.order,
+    "0x",
+    -1n,
+    order.user,
+    order.signature
+  );
+};
+
+const checkDeleteSignature = (lo: LimitOrder) => {
+  const newOrder = structuredClone(lo);
+  newOrder.order.amount = 0n;
+  return checkOrderSignature(newOrder);
+};
+
+const checkUpdateSignature = (
+  order: Partial<LimitOrder> & { signature: Hex }
+) => {
   // TODO: Implement
   return order.signature.startsWith("0x");
 };
 
-const checkDeleteSignature = (orderId: string, signature: Hex) => {
-  // TODO: Implement
-  return signature.startsWith("0x");
-};
-
-const checkUpdateSignature = (order: Partial<LimitOrder> & { signature: Hex }) => {
-  // TODO: Implement
-  return order.signature.startsWith("0x");
-};
-
-const invalidateNonce = async (user: Hex, nonce: number) => {
+const invalidateNonce = async (user: Hex, nonce: bigint) => {
   // TODO: Implement
 };
 
@@ -34,7 +44,7 @@ export class MatchingEngine {
 
   async addOrder(order: LimitOrder) {
     order.id = `${orderId++}`;
-    if (!checkOrderSignature(order)) {
+    if (!(await checkOrderSignature(order))) {
       throw new Error("Invalid order signature");
     }
     offersOfUser[order.user] = offersOfUser[order.user] || {};
@@ -57,7 +67,7 @@ export class MatchingEngine {
   }
 
   async updateOrder(newOrder: Partial<LimitOrder> & { signature: Hex }) {
-    checkUpdateSignature(newOrder);
+    await checkUpdateSignature(newOrder);
     const order = this.orders.find((o) => o.id === newOrder.id);
     if (order) {
       Object.assign(order, newOrder);
@@ -65,12 +75,12 @@ export class MatchingEngine {
   }
 
   async deleteOrder(orderId: string, signature: Hex) {
-    checkDeleteSignature(orderId, signature);
     const order = this.orders.find((o) => o.id === orderId);
     if (!order) {
       throw new Error("Order not found");
     }
-    await invalidateNonce(order.user, order.nonce);
+    await checkDeleteSignature(order);
+    await invalidateNonce(order.user, order.order.nonce);
     delete offersOfUser[order.user][order.id];
     this.orders = this.orders.filter((o) => o.id !== orderId);
   }
@@ -84,4 +94,5 @@ for (const market of markets) {
   engines.set(market, new MatchingEngine(market));
 }
 
-export const offersOfUser: { [user: string]: { [orderId: string]: Market } } = {};
+export const offersOfUser: { [user: string]: { [orderId: string]: Market } } =
+  {};
