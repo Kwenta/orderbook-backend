@@ -87,7 +87,34 @@ export class MatchingEngine {
     this.orders = this.orders.filter((o) => o.id !== orderId);
   }
 
-  checkForPossibleSettles() {}
+  checkForPossibleSettles() {
+    const pricesWithMultipleOrders = new Map<bigint, LimitOrder[]>();
+
+    for (const order of this.orders) {
+      const orders = pricesWithMultipleOrders.get(order.order.price) || [];
+      orders.push(order);
+      pricesWithMultipleOrders.set(order.order.price, orders);
+    }
+
+    for (const price of pricesWithMultipleOrders.keys()) {
+      const orders = pricesWithMultipleOrders.get(price);
+
+      // Remove prices with one order
+      if (orders.length < 2) {
+        pricesWithMultipleOrders.delete(price);
+      }
+
+      // Remove prices with only one side of the book
+      if (
+        orders?.every((o) => o.order.limitOrderMaker) ||
+        orders?.every((o) => !o.order.limitOrderMaker)
+      ) {
+        pricesWithMultipleOrders.delete(price);
+      }
+
+      // Pair up orders, then recheck for settles
+    }
+  }
 }
 
 export const engines = new Map<Market, MatchingEngine>();
