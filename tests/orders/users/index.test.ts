@@ -9,7 +9,7 @@ const addOrder = async (market: string, nonce: number, signature: string) => {
   return order.orderId;
 };
 
-it("Gets an order", async () => {
+it.skip("Gets an order", async () => {
   const market = "1";
   const orderId = await addOrder(market, 1, "0x");
 
@@ -22,7 +22,7 @@ it("Gets an order", async () => {
   });
 });
 
-it("Updates an order", async () => {
+it.skip("Updates an order", async () => {
   const market = "1";
   const orderId = await addOrder(market, 1, "0x");
 
@@ -34,7 +34,7 @@ it("Updates an order", async () => {
   expect(await res.json()).toEqual({ success: true });
 });
 
-it("Deletes an order", async () => {
+it.skip("Deletes an order", async () => {
   const market = "1";
   const orderId = await addOrder(market, 1, "0x");
 

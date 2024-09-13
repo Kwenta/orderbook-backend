@@ -2,6 +2,7 @@ import { Order } from "schemas";
 import { markets } from "../constants";
 import { checkSignatureOfOrder } from "../signing";
 import { Market } from "../types";
+import { zeroAddress } from "viem";
 
 type Hex = `0x${string}`;
 
@@ -10,8 +11,8 @@ type LimitOrder = { id?: string; signature: Hex; user: Hex; order: Order };
 const checkOrderSignature = async (order: LimitOrder) => {
   return checkSignatureOfOrder(
     order.order,
-    "0x",
-    BigInt(-1),
+    zeroAddress,
+    BigInt(1),
     order.user,
     order.signature
   );

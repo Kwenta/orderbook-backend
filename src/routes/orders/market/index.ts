@@ -137,7 +137,11 @@ marketOrderRouter.openapi(
     const engine = engines.get(market as Market);
     if (!engine) return c.json({ message: "The market was not found" }, 404);
 
-    const orderId = await engine.addOrder({ order, user, signature });
+    const orderId = await engine.addOrder({
+      order: { ...order, marketId: market },
+      user,
+      signature,
+    });
 
     return c.json({ success: true, orderId }, 200);
   })

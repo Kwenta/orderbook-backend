@@ -30,13 +30,12 @@ const getDomain = (chainId: bigint, contractAddress: `0x${string}`) => {
   );
 };
 
-const hashOfOrder = (
+export const hashOfOrder = (
   order: Order,
   contractAddress: `0x${string}`,
   chainId: bigint
 ) => {
   const domainSeparator = getDomain(chainId, contractAddress);
-
   const digest = keccak256(
     encodePacked(
       ["bytes1", "bytes1", "bytes32", "bytes32"],
@@ -88,6 +87,5 @@ export const checkSignatureOfOrder = async (
 ) => {
   const hash = hashOfOrder(order, contractAddress, chainId);
   const signer = await recoverAddress({ hash, signature });
-
   return checksumAddress(signer) === checksumAddress(user);
 };
