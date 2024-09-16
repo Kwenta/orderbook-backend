@@ -7,7 +7,9 @@ import { randomBytes } from "node:crypto";
 
 type Hex = `0x${string}`;
 
-type LimitOrder = { id?: string; signature: Hex; user: Hex; order: Order };
+type LimitOrder = { id: string; signature: Hex; user: Hex; order: Order; timestamp: bigint };
+
+type LimitOrderRaw = { signature: Hex; user: Hex; order: Order };
 
 const checkOrderSignature = async (order: LimitOrder) => {
   return checkSignatureOfOrder(
@@ -40,28 +42,49 @@ export class MatchingEngine {
     this.orderIdToPrice = new Map();
   }
 
-  async addOrder(order: LimitOrder) {
-    if (!order.id) {
-      order.id = randomBytes(16).toString('hex');
+  async addOrder(order: LimitOrderRaw) {
+    const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
+    if (order.order.expiration <= currentTimestamp) {
+      throw new Error("Order has expired");
     }
 
-    if (!(await checkOrderSignature(order))) {
+    const orderWithId: LimitOrder = { ...order, id: randomBytes(16).toString('hex'), timestamp: currentTimestamp };
+
+    if (!(await checkOrderSignature(orderWithId))) {
       throw new Error("Invalid order signature");
     }
 
     const orderMap = order.order.limitOrderMaker ? this.buyOrders : this.sellOrders;
-    if (!orderMap.has(order.order.price)) {
-      orderMap.set(order.order.price, new Map());
+    if (!orderMap.has(orderWithId.order.price)) {
+      orderMap.set(orderWithId.order.price, new Map());
     }
-    orderMap.get(order.order.price)!.set(order.id, order);
-    this.orderIdToPrice.set(order.id, order.order.price);
 
-    this.checkForPossibleSettles();
-    return order.id;
+    orderMap.get(orderWithId.order.price)?.set(orderWithId.id, orderWithId);
+    this.orderIdToPrice.set(orderWithId.id, orderWithId.order.price);
+
+    await this.checkForPossibleSettles();
+    return orderWithId.id;
   }
 
-  getOrders() {
-    return [...this.buyOrders.values(), ...this.sellOrders.values()];
+  getOrders(type: 'buy' | 'sell' | 'all' = 'all', price?: bigint): LimitOrder[] {
+    const getOrdersFromMap = (map: Map<bigint, Map<string, LimitOrder>>) => {
+      if (price !== undefined) {
+        return Array.from(map.get(price)?.values() ?? []);
+      }
+      return Array.from(map.values()).flatMap(priceMap => Array.from(priceMap.values()));
+    };
+
+    switch (type) {
+      case 'buy':
+        return getOrdersFromMap(this.buyOrders);
+      case 'sell':
+        return getOrdersFromMap(this.sellOrders);
+      case 'all':
+        return [
+          ...getOrdersFromMap(this.buyOrders),
+          ...getOrdersFromMap(this.sellOrders)
+        ];
+    }
   }
 
   getOrder(orderId: string) {
