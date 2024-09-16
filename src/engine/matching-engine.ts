@@ -1,7 +1,7 @@
-import { Order } from "schemas";
+import type { Order } from "schemas";
 import { markets } from "../constants";
 import { checkSignatureOfOrder } from "../signing";
-import { Market } from "../types";
+import type { Market } from "../types";
 import { zeroAddress } from "viem";
 import { randomBytes } from "node:crypto";
 
