@@ -1,5 +1,5 @@
 import { Account, zeroAddress } from "viem";
-import { app } from "../../../src/app";
+import { app } from "../../../src/routes";
 import { TRACKING_CODE } from "../../../src/constants";
 import { privateKeyToAccount } from "viem/accounts";
 import { hashOfOrder } from "../../../src/signing";
@@ -8,9 +8,7 @@ import { hashOfOrder } from "../../../src/signing";
   return this.toString();
 };
 
-const wallet = privateKeyToAccount(
-  "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-);
+const wallet = privateKeyToAccount("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
 
 const addOrder = async (market: string, nonce: number, signer: Account) => {
   const order = {

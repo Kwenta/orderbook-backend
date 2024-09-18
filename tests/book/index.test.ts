@@ -1,4 +1,4 @@
-import { app } from "../../src/app";
+import { app } from "../../src/routes";
 
 it("Is able to get the orders on the book", async () => {
   const market = "1";

@@ -1,4 +1,4 @@
-import { app } from "../../../src/app";
+import { app } from "../../../src/routes";
 
 const addOrder = async (market: string, nonce: number, signature: string) => {
   const res = await app.request(`/orders/market/${market}`, {

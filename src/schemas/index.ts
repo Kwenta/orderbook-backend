@@ -2,8 +2,8 @@ import { z } from "@hono/zod-openapi";
 import { TRACKING_CODE } from "../constants";
 import { checksumAddress, isAddress } from "viem";
 import * as viem from "viem";
-import { ZodBigInt, ZodEffects, ZodSchema } from "zod";
-import { Sizes } from "../types";
+import type { ZodBigInt, ZodEffects, ZodSchema, ZodString } from "zod";
+import type { Sizes } from "../types";
 
 export const orderId = z.string().openapi({
   example: "123",
@@ -14,37 +14,52 @@ export const hexString = z
   .refine((s) => s.startsWith("0x"))
   .transform((s) => s as `0x${string}`);
 
-export const zodAddress = () =>
-  hexString.refine((s) => isAddress(s)).transform((s) => checksumAddress(s));
+export const zodAddress = () => hexString.refine((s) => isAddress(s)).transform((s) => checksumAddress(s));
 
-export const uint = (n: Sizes = 256): ZodEffects<ZodBigInt, bigint, bigint> => {
+export const uint = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, string>, bigint, string> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxUint${n}`];
-  return z.coerce.bigint().refine((x) => x > BigInt(0) && x < maxValue);
+  return z
+    .string()
+    .transform(BigInt)
+    .refine((x) => x >= BigInt(0) && x < maxValue, `Value must be between 0 and ${maxValue}`);
+  // return z.coerce.bigint().refine((x) => x > BigInt(0) && x < maxValue);  // BREAKS OPENAPI GENERATION
 };
 
-export const int = (n: Sizes = 256): ZodEffects<ZodBigInt, bigint, bigint> => {
+export const int = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, string>, bigint, string> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxInt${n}`];
   const minValue = viem[`minInt${n}`];
-  return z.coerce.bigint().refine((x) => x > minValue && x < maxValue);
+  return z
+    .string()
+    .transform(BigInt)
+    .refine((x) => x > minValue && x < maxValue, `Value must be between ${minValue} and ${maxValue}`);
+  // return z.coerce.bigint().refine((x) => x > minValue && x < maxValue); // BREAKS OPENAPI GENERATION
 };
 
-export const marketId = uint(128);
+export const marketId = z.string();
+// export const marketId = uint(128);
 
 export const orderSchema = z.object({
-  accountId: uint(128),
-  marketId: uint(128),
+  // accountId: uint(128),
+  accountId: z.string(),
+  // marketId: uint(128),
+  marketId: z.string(),
   relayer: zodAddress(),
   amount: int(128),
   price: uint(256),
   limitOrderMaker: z.boolean(),
   expiration: uint(256),
   nonce: uint(256),
-  trackingCode: hexString.refine((s) => s.length === 64 && s === TRACKING_CODE),
+  trackingCode: hexString.refine((s) => s === TRACKING_CODE),
 });
 
 export type Order = z.infer<typeof orderSchema>;
+
+export const paginationSchema = z.object({
+  offset: z.number().optional().default(0),
+  limit: z.number().optional().default(10),
+});
 
 export const bodySchema = (schema: z.ZodSchema) => ({
   content: {
@@ -63,7 +78,7 @@ export const okSchema = (schema: z.ZodSchema, description = "") => ({
   description,
 });
 
-export const notFoundSchema = (description = "") => ({
+export const notFoundSchema = {
   content: {
     "application/json": {
       schema: z.object({
@@ -71,8 +86,8 @@ export const notFoundSchema = (description = "") => ({
       }),
     },
   },
-  description,
-});
+  description: "The requested resource was not found",
+};
 
 export const badRequestSchema = {
   content: {
@@ -85,6 +100,15 @@ export const badRequestSchema = {
   description: "The request was malformed",
 };
 
-export type Body<
-  T extends { body: { content: { "application/json": { schema: ZodSchema } } } }
-> = z.infer<T["body"]["content"]["application/json"]["schema"]>;
+export const internalServerErrorSchema = {
+  content: {
+    "application/json": {
+      schema: z.object({
+        message: z.string(),
+      }),
+    },
+  },
+  description: "Something went wrong internally",
+};
+
+export type Body<T extends { body: { content: { "application/json": { schema: ZodSchema } } } }> = z.infer<T["body"]["content"]["application/json"]["schema"]>;
