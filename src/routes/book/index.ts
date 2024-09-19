@@ -8,13 +8,16 @@ export const bookRouter = new OpenAPIHono();
 
 const route = createRoute({
   method: "get",
-  path: "/{market}",
+  path: "/{marketId}",
   request: {
     params: z.object({ marketId }),
     query: paginationSchema,
   },
   responses: {
-    200: okSchema(z.object({ marketId }).openapi("Book"), "Retrieve the book for a specific market"),
+    200: okSchema(
+      z.object({ marketId }).openapi("Book"),
+      "Retrieve the book for a specific market"
+    ),
   },
   ...standardResponses,
 });
@@ -28,7 +31,10 @@ bookRouter.openapi(
     const engine = findEngineOrFail(marketId as MarketId);
     const orders = engine.getOrders();
 
-    const slicedOrders = orders.slice(Number(offset), Number(offset) + Number(limit));
+    const slicedOrders = orders.slice(
+      Number(offset),
+      Number(offset) + Number(limit)
+    );
     return c.json({ marketId, orders: slicedOrders }, 200);
   })
 );
