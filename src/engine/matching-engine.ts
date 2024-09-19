@@ -109,6 +109,25 @@ export class MatchingEngine {
     this.orderIdToPrice.delete(orderId);
   }
 
+  pruneBook() {
+    const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
+    for (const [price, buyOrdersMap] of this.buyOrders) {
+      for (const [orderId, order] of buyOrdersMap) {
+        if (order.order.expiration <= currentTimestamp) {
+          this.deleteOrder(orderId, order.signature);
+        }
+      }
+    }
+
+    for (const [price, sellOrdersMap] of this.sellOrders) {
+      for (const [orderId, order] of sellOrdersMap) {
+        if (order.order.expiration <= currentTimestamp) {
+          this.deleteOrder(orderId, order.signature);
+        }
+      }
+    }
+  }
+
   checkForPossibleSettles() {
     const matchingOrders: LimitOrder[] = [];
 

@@ -23,7 +23,6 @@ export const uint = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, s
     .string()
     .transform(BigInt)
     .refine((x) => x >= BigInt(0) && x < maxValue, `Value must be between 0 and ${maxValue}`);
-  // return z.coerce.bigint().refine((x) => x > BigInt(0) && x < maxValue);  // BREAKS OPENAPI GENERATION
 };
 
 export const int = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, string>, bigint, string> => {
@@ -34,7 +33,6 @@ export const int = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, st
     .string()
     .transform(BigInt)
     .refine((x) => x > minValue && x < maxValue, `Value must be between ${minValue} and ${maxValue}`);
-  // return z.coerce.bigint().refine((x) => x > minValue && x < maxValue); // BREAKS OPENAPI GENERATION
 };
 
 export const marketId = z.string();
