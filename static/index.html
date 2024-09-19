@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="dashboard">
+        <div class="card">
+          <div class="card-header">
+            <h2>Submit an order</h2>
+          </div>
+          <div class="card-body">
+            <form class="contact-form" id="add-order-form">
+              <div class="form-group">
+                <label for="accountID">Account ID</label>
+                <input id="accountID" placeholder="<Filled in by SDK>" disabled />
+              </div>
+              <div class="form-group">
+                <label for="marketID">Market ID</label>
+                <input id="marketID" placeholder="" disabled />
+              </div>
+              <div class="form-group">
+                <label for="relayer">Relayer</label>
+                <input id="relayer" placeholder="0x0000000000000000000000000000000000000000" disabled />
+              </div>
+              <div class="form-group">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" placeholder="1" />
+              </div>
+              <div class="form-group">
+                <label for="price">Price</label>
+                <input type="number" id="price" placeholder="3000" />
+              </div>
+              <div class="form-group checkbox-group">
+                <label for="limitOrderMaker">Limit Order Maker</label>
+                <input type="checkbox" id="limitOrderMaker" />
+              </div>
+              <div class="form-group">
+                <label for="expiration">Expiration</label>
+                <input type="date" id="expiration" />
+              </div>
+              <div class="form-group">
+                <label for="nonce">Nonce</label>
+                <input type="number" id="nonce" disabled />
+              </div>
+              <div class="form-group">
+                <label for="trackingCode">Tracking Code</label>
+                <input id="trackingCode" placeholder="KWENTA" disabled />
+              </div>
+              <button type="submit" id="add-order-btn">Submit</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Market dropdown -->
+
+        <div class="card">
+          <select name="market" id="market-selector">
+            <option value="">Select a market</option>
+          </select>
+          <div class="card-header">
+            <h2>Book</h2>
+          </div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Price</th>
+                  <th>Amount</th>
+                  <th>User</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>3000</td>
+                  <td>1</td>
+                  <td>Me</td>
+                  <td>Now</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card-header">
+            <h2>My Order History</h2>
+          </div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Price</th>
+                  <th>Amount</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Open</td>
+                  <td>3000</td>
+                  <td>1</td>
+                  <td>1 day ago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Settled Orders</h2>
+          </div>
+          <div class="card-body">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Maker</th>
+                  <th>Taker</th>
+                  <th>Price</th>
+                  <th>Amount</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>0x0</td>
+                  <td>0x1</td>
+                  <td>3000</td>
+                  <td>1</td>
+                  <td>1 day ago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createWalletClient, http, stringToHex, encodePacked, keccak256, toBytes, encodeAbiParameters } from "https://esm.sh/viem";
+      import { privateKeyToAccount } from "https://esm.sh/viem/accounts";
+      import { mainnet } from "https://esm.sh/viem/chains";
+
+      const client = createWalletClient({
+        chain: mainnet,
+        transport: http(),
+      });
+
+      const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+      const account = privateKeyToAccount(privateKey);
+
+      document.getElementById("accountID").value = account.address;
+
+      document.getElementById("market-selector").onchange = (e) => {
+        document.getElementById("marketID").value = e.target.value;
+      };
+
+      const populateMarkets = async () => {
+        const { markets } = await fetch("http://localhost:3000/markets").then((res) => res.json());
+
+        const marketSelector = document.getElementById("market-selector");
+
+        markets.forEach(({ id, name }) => {
+          marketSelector.innerHTML += `<option value="${id}">${name}</option>`;
+        });
+      };
+
+      /* FROM SDK */
+      const VERSION_HASH = keccak256(toBytes("1"));
+      const NAME_HASH = keccak256(toBytes("SyntheticPerpetualFutures"));
+      const ORDER_TYPEHASH = keccak256(toBytes("SignedOrderRequest(uint128 accountId,uint128 marketId,address relayer,int128 amount,uint256 price,limitOrderMaker bool,expiration uint256,nonce uint256,trackingCode bytes32)"));
+      const DOMAIN_HASH = keccak256(toBytes("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"));
+
+      const getDomain = (chainId, contractAddress) => {
+        return keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "bytes32" }, { type: "bytes32" }, { type: "uint256" }, { type: "address" }], [DOMAIN_HASH, NAME_HASH, VERSION_HASH, chainId, contractAddress]));
+      };
+
+      const hashOfOrder = (order, contractAddress, chainId) => {
+        const domainSeparator = getDomain(chainId, contractAddress);
+        const digest = keccak256(encodePacked(["bytes1", "bytes1", "bytes32", "bytes32"], ["0x19", "0x01", domainSeparator, keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint128" }, { type: "uint128" }, { type: "address" }, { type: "int128" }, { type: "uint256" }, { type: "bool" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes32" }], [ORDER_TYPEHASH, order.accountId, order.marketId, order.relayer, order.amount, order.price, order.limitOrderMaker, order.expiration, order.nonce, order.trackingCode]))]));
+
+        return digest;
+      };
+
+      /*    */
+
+      document.getElementById("add-order-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const marketID = document.getElementById("marketID").value;
+        const amount = document.getElementById("amount").value || "1";
+        const price = document.getElementById("price").value || "3000";
+        const limitOrderMaker = document.getElementById("limitOrderMaker").checked;
+        const expiration = new Date(document.getElementById("expiration").value).getTime().toString();
+        const nonce = document.getElementById("nonce").value ?? "1";
+        const trackingCode = document.getElementById("trackingCode").value;
+
+        const order = {
+          accountId: account.address,
+          marketId: marketID,
+          relayer: "0x0000000000000000000000000000000000000000",
+          amount,
+          price,
+          limitOrderMaker,
+          expiration,
+          nonce,
+          trackingCode: stringToHex("KWENTA", { size: 32 }),
+        };
+
+        const hash = hashOfOrder(order, "0x0000000000000000000000000000000000000000", 1n);
+        const signature = await account.sign({ hash });
+
+        await fetch(`http://localhost:3000/orders/market/${marketID}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ order, signature, user: account.address }),
+        });
+      });
+
+      const getBook = async () => {
+        const marketID = document.getElementById("marketID").value;
+        const data = await fetch(`http://localhost:3000/orders/market/${marketID}`).then((res) => res.json());
+
+        const orders = data.map((o) => {
+          return {
+            price: o.order.price,
+            amount: o.order.amount,
+            user: o.user,
+            timestamp: o.timestamp,
+            side: o.order.limitOrderMaker ? "bid" : "ask",
+          };
+        });
+
+        document.querySelector(".data-table tbody").innerHTML = orders
+          .map(
+            (o) => `
+          <tr>
+            <td style="${o.side === "bid" ? "color: #AA0000" : "color: #00AA00"}">${o.price}</td>
+            <td>${o.amount}</td>
+            <td>${o.user.slice(0, 10)}</td>
+            <td>${o.timestamp}</td>
+          </tr>
+        `
+          )
+          .join("");
+
+        console.log(data);
+      };
+
+      setInterval(getBook, 2000);
+
+      populateMarkets();
+    </script>
+  </body>
+</html>

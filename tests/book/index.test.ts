@@ -1,10 +1,9 @@
-import { testClient } from "hono/testing";
-import app from "../../src/index";
+import { app } from "../../src/routes";
 
-it("test", async () => {
-  const market = "test-market";
+it("Is able to get the orders on the book", async () => {
+  const market = "1";
 
   const res = await app.request(`/book/${market}`);
   expect(res.status).toBe(200);
-  expect(await res.json()).toEqual({ market });
+  expect(await res.json()).toEqual({ market, orders: [] });
 });
