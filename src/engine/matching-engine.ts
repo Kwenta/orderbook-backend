@@ -8,7 +8,7 @@ import { HTTPError } from "../utils";
 
 type Hex = `0x${string}`;
 
-type LimitOrder = { id: string; signature: Hex; user: Hex; order: Order; timestamp?: bigint };
+type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint };
 
 type LimitOrderRaw = { signature: Hex; user: Hex; order: Order };
 
