@@ -1,7 +1,7 @@
 import { checksumAddress, hashTypedData, recoverTypedDataAddress } from "viem";
 import type { Order as FullOrder } from "./types";
 
-const orderTypes = {
+export const orderTypes = {
   Order: [
     { name: "metadata", type: "Metadata" },
     { name: "trader", type: "Trader" },
@@ -33,7 +33,7 @@ const orderTypes = {
   ],
 };
 
-const domain = (chainId: bigint, contractAddress: `0x${string}`) => ({
+export const domain = (chainId: bigint, contractAddress: `0x${string}`) => ({
   chainId: Number(chainId),
   verifyingContract: contractAddress,
   name: "SyntheticPerpetualFutures",
