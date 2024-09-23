@@ -1,5 +1,7 @@
-import { Address } from "viem";
+import type { Address, Prettify } from "viem";
 import type { markets } from "./constants";
+import type { conditionSchema, metadataSchema, orderSchema, traderSchema, tradeSchema } from "./schemas";
+import type { z, ZodEffects, ZodString } from "zod";
 
 export type Market = (typeof markets)[number];
 export type MarketId = Market["id"];
@@ -41,64 +43,20 @@ export const OrderType = {
   STOP_LIMIT: 4,
 } as const;
 
-type uint256 = bigint & { _type: "uint256" };
-type uint128 = bigint & { _type: "uint128" };
-type int128 = bigint & { _type: "int128" };
-type bytes32 = string & { _type: "bytes32" };
-type bytes4 = string & { _type: "bytes4" };
-type bytes = string & { _type: "bytes" };
-
-export type Metadata = {
-  // timestamp when the order was created
-  genesis: uint256;
-  // timestamp when the order will expire
-  expiration: uint256;
-  // tracking code for the order
-  trackingCode: bytes32;
-  // address of the referrer
-  referrer: Address;
+export type uint = {
+  [T in Sizes]: bigint & { _type: `uint${T}` };
 };
 
-export type Trader = {
-  // unique order identifier for a given account
-  nonce: uint256;
-  // unique account identifier
-  accountId: uint128;
-  // address of the trade signer which:
-  //  - must be the account owner
-  //  - must satisfy account-specified permissions
-  signer: Address;
+export type int = {
+  [T in Sizes]: bigint & { _type: `int${T}` };
 };
 
-export type Trade = {
-  // type of order
-  t: (typeof OrderType)[keyof typeof OrderType];
-  // unique market identifier
-  marketId: uint128;
-  // size of the trade:
-  //  - measured in the market's underlying asset
-  //  - sign indicates the direction of the trade
-  size: int128;
-  // indicates the price of the trade:
-  //  - measured in the asset used to quote the market's underlying asset
-  //  - logic varies depending on the order type
-  price: uint256;
-};
+export type ZodUint<T extends keyof uint> = ZodEffects<ZodEffects<ZodString, bigint, string>, uint[T], string>;
+export type ZodInt<T extends keyof int> = ZodEffects<ZodEffects<ZodString, bigint, string>, int[T], string>;
 
-export type Condition = {
-  // address of the contract to staticcall
-  target: Address;
-  // identifier of the function to call
-  selector: bytes4;
-  // data to pass to the function
-  data: bytes;
-  // expected return value
-  expected: bytes32;
-};
+export type Metadata = z.infer<typeof metadataSchema>;
+export type Trader = z.infer<typeof traderSchema>;
+export type Trade = z.infer<typeof tradeSchema>;
+export type Condition = z.infer<typeof conditionSchema>;
 
-export type Order = {
-  metadata: Metadata;
-  trader: Trader;
-  trade: Trade;
-  conditions: Condition[];
-};
+export type Order = z.infer<typeof orderSchema>;
