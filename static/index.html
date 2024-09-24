@@ -197,31 +197,35 @@
         const price = document.getElementById("price").value || "3000";
         const limitOrderMaker = document.getElementById("limitOrderMaker").checked;
         const expiration = new Date(document.getElementById("expiration").value).getTime().toString();
-        const nonce = document.getElementById("nonce").value ?? "1";
+        let nonce = document.getElementById("nonce").value ?? "1";
         const trackingCode = document.getElementById("trackingCode").value;
 
-        const order = {
-          accountId: account.address,
-          marketId: marketID,
-          relayer: "0x0000000000000000000000000000000000000000",
-          amount,
-          price,
-          limitOrderMaker,
-          expiration,
-          nonce,
-          trackingCode: stringToHex("KWENTA", { size: 32 }),
-        };
+        while (nonce < 1) {
+          const order = {
+            accountId: account.address,
+            marketId: marketID,
+            relayer: "0x0000000000000000000000000000000000000000",
+            amount,
+            price,
+            limitOrderMaker,
+            expiration,
+            type: 1,
+            nonce,
+            trackingCode: stringToHex("KWENTA", { size: 32 }),
+          };
 
-        const hash = hashOfOrder(order, "0x0000000000000000000000000000000000000000", 1n);
-        const signature = await account.sign({ hash });
+          const hash = hashOfOrder(order, "0x0000000000000000000000000000000000000000", 1n);
+          const signature = await account.sign({ hash });
 
-        await fetch(`http://localhost:3000/orders/market/${marketID}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ order, signature, user: account.address }),
-        });
+          await fetch(`http://localhost:3000/orders/market/${marketID}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ order, signature, user: account.address }),
+          });
+          nonce++;
+        }
       });
 
       const getBook = async () => {

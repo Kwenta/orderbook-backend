@@ -1,4 +1,4 @@
-import type { Order } from "schemas";
+import type { int128, Order } from "../types";
 import { markets } from "../constants";
 import { checkSignatureOfOrder } from "../signing";
 import type { Market, MarketId } from "../types";
@@ -12,13 +12,15 @@ type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint };
 
 type LimitOrderRaw = { signature: Hex; user: Hex; order: Order };
 
+const side = (order: Order) => (order.trade.size < BigInt(0) ? "sell" : "buy");
+
 const checkOrderSignature = async (order: LimitOrder) => {
   return checkSignatureOfOrder(order.order, zeroAddress, BigInt(1), order.user, order.signature);
 };
 
 const checkDeleteSignature = async (lo: LimitOrder) => {
   const newOrder = structuredClone(lo);
-  newOrder.order.amount = BigInt(0);
+  newOrder.order.trade.size = BigInt(0) as int128;
   return await checkOrderSignature(newOrder);
 };
 
@@ -33,28 +35,35 @@ export class MatchingEngine {
     this.orderIdToPrice = new Map();
   }
 
-  async addOrder(order: LimitOrderRaw) {
+  async addOrder(orderData: LimitOrderRaw) {
     const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
-    if (order.order.expiration <= currentTimestamp) {
+    if (orderData.order.metadata.expiration <= currentTimestamp) {
       throw new Error("Order has expired");
     }
 
-    const orderWithId: LimitOrder = { ...order, id: randomBytes(16).toString("hex"), timestamp: currentTimestamp };
+    const orderWithId: LimitOrder = {
+      ...orderData,
+      id: randomBytes(16).toString("hex"),
+      timestamp: currentTimestamp,
+    };
+
+    const { order, id } = orderWithId;
+    const price = order.trade.price;
 
     if (!(await checkOrderSignature(orderWithId))) {
       throw new Error("Invalid order signature");
     }
 
-    const orderMap = order.order.limitOrderMaker ? this.buyOrders : this.sellOrders;
-    if (!orderMap.has(orderWithId.order.price)) {
-      orderMap.set(orderWithId.order.price, new Map());
+    const orderMap = side(order) === "buy" ? this.buyOrders : this.sellOrders;
+    if (!orderMap.has(price)) {
+      orderMap.set(price, new Map());
     }
 
-    orderMap.get(orderWithId.order.price)?.set(orderWithId.id, orderWithId);
-    this.orderIdToPrice.set(orderWithId.id, orderWithId.order.price);
+    orderMap.get(price)?.set(id, orderWithId);
+    this.orderIdToPrice.set(id, price);
 
     await this.checkForPossibleSettles();
-    return orderWithId.id;
+    return id;
   }
 
   getOrders(type: "buy" | "sell" | "all" = "all", price?: bigint): LimitOrder[] {
@@ -101,7 +110,7 @@ export class MatchingEngine {
 
     const price = this.orderIdToPrice.get(orderId);
     if (!price) throw new Error("Price not found");
-    const orderMap = order.order.limitOrderMaker ? this.buyOrders : this.sellOrders;
+    const orderMap = side(order.order) === "buy" ? this.buyOrders : this.sellOrders;
     orderMap.get(price)?.delete(orderId);
     if (orderMap.get(price)?.size === 0) {
       orderMap.delete(price);
@@ -112,17 +121,17 @@ export class MatchingEngine {
   pruneBook() {
     const currentTimestamp = BigInt(Math.floor(Date.now() / 1000));
     for (const [price, buyOrdersMap] of this.buyOrders) {
-      for (const [orderId, order] of buyOrdersMap) {
-        if (order.order.expiration <= currentTimestamp) {
-          this.deleteOrder(orderId, order.signature);
+      for (const [orderId, { order, signature }] of buyOrdersMap) {
+        if (order.metadata.expiration <= currentTimestamp) {
+          this.deleteOrder(orderId, signature);
         }
       }
     }
 
     for (const [price, sellOrdersMap] of this.sellOrders) {
-      for (const [orderId, order] of sellOrdersMap) {
-        if (order.order.expiration <= currentTimestamp) {
-          this.deleteOrder(orderId, order.signature);
+      for (const [orderId, { order, signature }] of sellOrdersMap) {
+        if (order.metadata.expiration <= currentTimestamp) {
+          this.deleteOrder(orderId, signature);
         }
       }
     }
@@ -132,11 +141,11 @@ export class MatchingEngine {
     const matchingOrders: LimitOrder[] = [];
 
     for (const [price, buyOrdersMap] of this.buyOrders) {
-      console.log("Checking for possible settles at price " + price);
+      console.log(`Checking for possible settles at price ${price}`);
       const sellOrdersMap = this.sellOrders.get(price);
 
       if (sellOrdersMap) {
-        console.log("Sell orders: " + sellOrdersMap?.size);
+        console.log(`Sell orders: ${sellOrdersMap?.size}`);
         matchingOrders.push(...buyOrdersMap.values());
         matchingOrders.push(...sellOrdersMap.values());
       }

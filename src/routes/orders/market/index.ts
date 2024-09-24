@@ -1,5 +1,12 @@
 import { OpenAPIHono, z, createRoute } from "@hono/zod-openapi";
-import { bodySchema, hexString, marketId, okSchema, orderId, orderSchema as oSchema } from "../../../schemas";
+import {
+  bodySchema,
+  hexString,
+  marketId,
+  okSchema,
+  orderId,
+  orderSchema as oSchema,
+} from "../../../schemas";
 import { findEngineOrFail } from "../../../engine/matching-engine";
 import { makeSafe, standardResponses } from "../../../utils";
 import type { Body } from "../../../schemas";
@@ -48,8 +55,12 @@ const addRoute = createRoute({
   responses: {
     201: okSchema(
       z.object({
-        success: z.boolean({ description: "If the order was added to the book" }),
-        orderId: z.string({ description: "The unique identifier of the order" }),
+        success: z.boolean({
+          description: "If the order was added to the book",
+        }),
+        orderId: z.string({
+          description: "The unique identifier of the order",
+        }),
       }),
       "Add an order to the book for a specific market"
     ),
@@ -64,7 +75,10 @@ const getRoute = createRoute({
     params: z.object({ marketId, orderId }),
   },
   responses: {
-    200: okSchema(orderSchema.describe("Order data"), "Get the data for an order"),
+    200: okSchema(
+      orderSchema.describe("Order data"),
+      "Get the data for an order"
+    ),
     ...standardResponses,
   },
 });
@@ -76,19 +90,24 @@ const getAllRoute = createRoute({
     params: z.object({ marketId }),
   },
   responses: {
-    200: okSchema(z.array(orderSchema.describe("Order data")), "Get the data for all orders "),
+    200: okSchema(
+      z.array(orderSchema.describe("Order data")),
+      "Get the data for all orders "
+    ),
     ...standardResponses,
   },
 });
 
 const deleteRoute = createRoute({
   method: "delete",
-  path: "/{market}/{orderId}",
+  path: "/{marketId}/{orderId}",
   request: deleteOrderSchema,
   responses: {
     200: okSchema(
       z.object({
-        success: z.boolean({ description: "If the order was removed from the book" }),
+        success: z.boolean({
+          description: "If the order was removed from the book",
+        }),
       }),
       "Remove an order from the book of a specific market"
     ),
@@ -98,7 +117,7 @@ const deleteRoute = createRoute({
 
 const updateRoute = createRoute({
   method: "patch",
-  path: "/{market}/{orderId}",
+  path: "/{marketId}/{orderId}",
   request: updateOrderSchema,
   responses: {
     200: okSchema(
@@ -115,7 +134,9 @@ marketOrderRouter.openapi(
   addRoute,
   makeSafe(async (c) => {
     const { marketId } = c.req.param();
-    const { order, signature, user } = (await c.req.json()) as Body<typeof addOrderSchema>;
+    const { order, signature, user } = (await c.req.json()) as Body<
+      typeof addOrderSchema
+    >;
 
     const engine = findEngineOrFail(marketId as MarketId);
 
@@ -174,7 +195,9 @@ marketOrderRouter.openapi(
   deleteRoute,
   makeSafe(async (c) => {
     const { market, orderId } = c.req.param();
-    const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>;
+    const { signature } = (await c.req.json()) as Body<
+      typeof deleteOrderSchema
+    >;
 
     const engine = findEngineOrFail(market as MarketId);
     await engine.deleteOrder(orderId, signature);

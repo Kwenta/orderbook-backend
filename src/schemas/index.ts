@@ -2,8 +2,8 @@ import { z } from "@hono/zod-openapi";
 import { TRACKING_CODE } from "../constants";
 import { checksumAddress, isAddress } from "viem";
 import * as viem from "viem";
-import type { ZodBigInt, ZodEffects, ZodSchema, ZodString } from "zod";
-import type { Sizes } from "../types";
+import type { ZodEffects, ZodSchema, ZodString } from "zod";
+import { OrderType, uint, ZodInt, ZodUint, type int, type Sizes } from "../types";
 
 export const orderId = z.string().openapi({
   example: "123",
@@ -16,43 +16,89 @@ export const hexString = z
 
 export const zodAddress = () => hexString.refine((s) => isAddress(s)).transform((s) => checksumAddress(s));
 
-export const uint = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, string>, bigint, string> => {
+export const uintSchema = (n: Sizes = 256): ZodUint<keyof uint> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxUint${n}`];
   return z
     .string()
     .transform(BigInt)
-    .refine((x) => x >= BigInt(0) && x < maxValue, `Value must be between 0 and ${maxValue}`);
+    .refine((x) => x >= BigInt(0) && x < maxValue, `Value must be between 0 and ${maxValue}`) as ZodUint<keyof uint>;
 };
 
-export const int = (n: Sizes = 256): ZodEffects<ZodEffects<ZodString, bigint, string>, bigint, string> => {
+export const uint8 = () => uintSchema(8) as ZodUint<8>;
+export const uint128 = () => uintSchema(128) as ZodUint<128>;
+export const uint256 = () => uintSchema(256) as ZodUint<256>;
+
+export const intSchema = (n: Sizes = 256): ZodInt<keyof int> => {
   if (n < 0 || n > 256) throw new Error("Invalid uint size");
   const maxValue = viem[`maxInt${n}`];
   const minValue = viem[`minInt${n}`];
   return z
     .string()
     .transform(BigInt)
-    .refine((x) => x > minValue && x < maxValue, `Value must be between ${minValue} and ${maxValue}`);
+    .refine((x) => x > minValue && x < maxValue, `Value must be between ${minValue} and ${maxValue}`) as ZodInt<keyof int>;
 };
 
-export const marketId = z.string();
-// export const marketId = uint(128);
+export const int8 = () => intSchema(8) as ZodInt<8>;
+export const int128 = () => intSchema(128) as ZodInt<128>;
+export const int256 = () => intSchema(256) as ZodInt<256>;
 
-export const orderSchema = z.object({
-  // accountId: uint(128),
-  accountId: z.string(),
-  // marketId: uint(128),
-  marketId: z.string(),
-  relayer: zodAddress(),
-  amount: int(128),
-  price: uint(256),
-  limitOrderMaker: z.boolean(),
-  expiration: uint(256),
-  nonce: uint(256),
-  trackingCode: hexString.refine((s) => s === TRACKING_CODE),
+export const marketId = uint128();
+
+export const metadataSchema = z.object({
+  // timestamp when the order was created
+  genesis: uint256(),
+  // timestamp when the order will expire
+  expiration: uint256(),
+  // tracking code for the order
+  trackingCode: hexString,
+  // address of the referrer
+  referrer: zodAddress(),
 });
 
-export type Order = z.infer<typeof orderSchema>;
+export const traderSchema = z.object({
+  // unique order identifier for a given account
+  nonce: uint256(),
+  // unique account identifier
+  accountId: uint128(),
+  // address of the trade signer which:
+  //  - must be the account owner
+  //  - must satisfy account-specified permissions
+  signer: zodAddress(),
+});
+
+export const tradeSchema = z.object({
+  // type of order
+  t: z.enum(Object.values(OrderType).map((x) => x.toString()) as [string, ...string[]]),
+  // unique market identifier
+  marketId: uint128(),
+  // size of the trade:
+  //  - measured in the market's underlying asset
+  //  - sign indicates the direction of the trade
+  size: int128(),
+  // indicates the price of the trade:
+  //  - measured in the asset used to quote the market's underlying asset
+  //  - logic varies depending on the order type
+  price: uint256(),
+});
+
+export const conditionSchema = z.object({
+  // address of the contract to staticcall
+  target: zodAddress(),
+  // identifier of the function to call
+  selector: hexString.refine((s) => s.length === 10),
+  // data to pass to the function
+  data: hexString,
+  // expected return value
+  expected: hexString.refine((s) => s.length === 66),
+});
+
+export const orderSchema = z.object({
+  metadata: metadataSchema,
+  trader: traderSchema,
+  trade: tradeSchema,
+  conditions: z.array(conditionSchema),
+});
 
 export const paginationSchema = z.object({
   offset: z.number().optional().default(0),

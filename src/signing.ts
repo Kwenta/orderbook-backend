@@ -1,20 +1,71 @@
-import { checksumAddress, encodeAbiParameters, encodePacked, keccak256, recoverAddress } from "viem";
-import type { Order } from "./schemas";
-import { DOMAIN_HASH, NAME_HASH, ORDER_TYPEHASH, VERSION_HASH } from "./constants";
+import { checksumAddress, hashTypedData, recoverTypedDataAddress } from "viem";
+import type { Order as FullOrder } from "./types";
 
-const getDomain = (chainId: bigint, contractAddress: `0x${string}`) => {
-  return keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "bytes32" }, { type: "bytes32" }, { type: "uint256" }, { type: "address" }], [DOMAIN_HASH, NAME_HASH, VERSION_HASH, chainId, contractAddress]) as `0x${string}`);
+export const orderTypes = {
+  Order: [
+    { name: "metadata", type: "Metadata" },
+    { name: "trader", type: "Trader" },
+    { name: "trade", type: "Trade" },
+    { name: "conditions", type: "Condition[]" },
+  ],
+  Metadata: [
+    { name: "genesis", type: "uint256" },
+    { name: "expiration", type: "uint256" },
+    { name: "trackingCode", type: "bytes32" },
+    { name: "referrer", type: "address" },
+  ],
+  Trader: [
+    { name: "nonce", type: "uint256" },
+    { name: "accountId", type: "uint128" },
+    { name: "signer", type: "address" },
+  ],
+  Trade: [
+    { name: "t", type: "uint8" },
+    { name: "marketId", type: "uint128" },
+    { name: "size", type: "int128" },
+    { name: "price", type: "uint256" },
+  ],
+  Condition: [
+    { name: "target", type: "address" },
+    { name: "selector", type: "bytes4" },
+    { name: "data", type: "bytes" },
+    { name: "expected", type: "bytes32" },
+  ],
 };
 
-export const hashOfOrder = (order: Order, contractAddress: `0x${string}`, chainId: bigint) => {
-  const domainSeparator = getDomain(chainId, contractAddress);
-  const digest = keccak256(encodePacked(["bytes1", "bytes1", "bytes32", "bytes32"], ["0x19", "0x01", domainSeparator, keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "uint128" }, { type: "uint128" }, { type: "address" }, { type: "int128" }, { type: "uint256" }, { type: "bool" }, { type: "uint256" }, { type: "uint256" }, { type: "bytes32" }], [ORDER_TYPEHASH, order.accountId, order.marketId, order.relayer, order.amount, order.price, order.limitOrderMaker, order.expiration, order.nonce, order.trackingCode]))]) as `0x${string}`);
+export const domain = (chainId: bigint, contractAddress: `0x${string}`) => ({
+  chainId: Number(chainId),
+  verifyingContract: contractAddress,
+  name: "SyntheticPerpetualFutures",
+  version: "1",
+});
 
-  return digest;
+export const hashOfOrder = (order: FullOrder, contractAddress: `0x${string}`, chainId: bigint) => {
+  return hashTypedData({
+    domain: domain(chainId, contractAddress),
+    types: orderTypes,
+    primaryType: "Order",
+    message: {
+      metadata: order.metadata,
+      trader: order.trader,
+      trade: order.trade,
+      conditions: order.conditions,
+    },
+  });
 };
 
-export const checkSignatureOfOrder = async (order: Order, contractAddress: `0x${string}`, chainId: bigint, user: `0x${string}`, signature: `0x${string}`) => {
-  const hash = hashOfOrder(order, contractAddress, chainId);
-  const signer = await recoverAddress({ hash, signature });
+export const checkSignatureOfOrder = async (order: FullOrder, contractAddress: `0x${string}`, chainId: bigint, user: `0x${string}`, signature: `0x${string}`) => {
+  const signer = await recoverTypedDataAddress({
+    domain: domain(chainId, contractAddress),
+    types: orderTypes,
+    primaryType: "Order",
+    message: {
+      metadata: order.metadata,
+      trader: order.trader,
+      trade: order.trade,
+      conditions: order.conditions,
+    },
+    signature,
+  });
   return checksumAddress(signer) === checksumAddress(user);
 };
