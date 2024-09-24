@@ -12,6 +12,8 @@ type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint };
 
 type LimitOrderRaw = { signature: Hex; user: Hex; order: Order };
 
+const side = (order: Order) => (order.trade.size < BigInt(0) ? "sell" : "buy");
+
 const checkOrderSignature = async (order: LimitOrder) => {
   return checkSignatureOfOrder(order.order, zeroAddress, BigInt(1), order.user, order.signature);
 };
@@ -52,7 +54,7 @@ export class MatchingEngine {
       throw new Error("Invalid order signature");
     }
 
-    const orderMap = order.trade.size < BigInt(0) ? this.buyOrders : this.sellOrders;
+    const orderMap = side(order) === "buy" ? this.buyOrders : this.sellOrders;
     if (!orderMap.has(price)) {
       orderMap.set(price, new Map());
     }
@@ -108,7 +110,7 @@ export class MatchingEngine {
 
     const price = this.orderIdToPrice.get(orderId);
     if (!price) throw new Error("Price not found");
-    const orderMap = order.order.trade.size < BigInt(0) ? this.buyOrders : this.sellOrders;
+    const orderMap = side(order) === "buy" ? this.buyOrders : this.sellOrders;
     orderMap.get(price)?.delete(orderId);
     if (orderMap.get(price)?.size === 0) {
       orderMap.delete(price);
