@@ -110,7 +110,7 @@ export class MatchingEngine {
 
     const price = this.orderIdToPrice.get(orderId);
     if (!price) throw new Error("Price not found");
-    const orderMap = side(order) === "buy" ? this.buyOrders : this.sellOrders;
+    const orderMap = side(order.order) === "buy" ? this.buyOrders : this.sellOrders;
     orderMap.get(price)?.delete(orderId);
     if (orderMap.get(price)?.size === 0) {
       orderMap.delete(price);
