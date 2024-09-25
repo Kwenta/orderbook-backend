@@ -1,12 +1,5 @@
 import { OpenAPIHono, z, createRoute } from "@hono/zod-openapi";
-import {
-  bodySchema,
-  hexString,
-  marketId,
-  okSchema,
-  orderId,
-  orderSchema as oSchema,
-} from "../../../schemas";
+import { bodySchema, hexString, marketId, okSchema, orderId, orderSchema as oSchema } from "../../../schemas";
 import { findEngineOrFail } from "../../../engine/matching-engine";
 import { makeSafe, standardResponses } from "../../../utils";
 import type { Body } from "../../../schemas";
@@ -75,10 +68,7 @@ const getRoute = createRoute({
     params: z.object({ marketId, orderId }),
   },
   responses: {
-    200: okSchema(
-      orderSchema.describe("Order data"),
-      "Get the data for an order"
-    ),
+    200: okSchema(orderSchema.describe("Order data"), "Get the data for an order"),
     ...standardResponses,
   },
 });
@@ -90,10 +80,7 @@ const getAllRoute = createRoute({
     params: z.object({ marketId }),
   },
   responses: {
-    200: okSchema(
-      z.array(orderSchema.describe("Order data")),
-      "Get the data for all orders "
-    ),
+    200: okSchema(z.array(orderSchema.describe("Order data")), "Get the data for all orders "),
     ...standardResponses,
   },
 });
@@ -134,17 +121,11 @@ marketOrderRouter.openapi(
   addRoute,
   makeSafe(async (c) => {
     const { marketId } = c.req.param();
-    const { order, signature, user } = (await c.req.json()) as Body<
-      typeof addOrderSchema
-    >;
+    const { order, signature, user } = (await c.req.json()) as Body<typeof addOrderSchema>;
 
     const engine = findEngineOrFail(marketId as MarketId);
 
-    const orderId = await engine.addOrder({
-      order: { ...order, marketId: BigInt(marketId) },
-      user,
-      signature,
-    });
+    const orderId = await engine.addOrder({ order, user, signature });
 
     return c.json({ success: true, orderId }, 201);
   })
@@ -195,9 +176,7 @@ marketOrderRouter.openapi(
   deleteRoute,
   makeSafe(async (c) => {
     const { market, orderId } = c.req.param();
-    const { signature } = (await c.req.json()) as Body<
-      typeof deleteOrderSchema
-    >;
+    const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>;
 
     const engine = findEngineOrFail(market as MarketId);
     await engine.deleteOrder(orderId, signature);
