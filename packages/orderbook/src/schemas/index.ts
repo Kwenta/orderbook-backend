@@ -1,8 +1,7 @@
 import { z } from '@hono/zod-openapi'
 import { checksumAddress, isAddress } from 'viem'
 import * as viem from 'viem'
-import type { ZodEffects, ZodSchema, ZodString } from 'zod'
-import { TRACKING_CODE } from '../constants'
+import type { ZodSchema } from 'zod'
 import { OrderType, type Sizes, type ZodInt, type ZodUint, type int, type uint } from '../types'
 
 export const orderId = z.string().openapi({

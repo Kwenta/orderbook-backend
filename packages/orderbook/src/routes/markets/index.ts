@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { markets } from '../../constants'
+import { loadMarkets } from '../../markets'
 import { marketId, okSchema } from '../../schemas'
 import { makeSafe, standardResponses } from '../../utils'
 
@@ -22,8 +22,9 @@ const route = createRoute({
 
 marketRouter.openapi(
 	route,
-	makeSafe((c) => {
+	makeSafe(async(c) => {
 		const { marketId } = c.req.param()
+		const markets = await loadMarkets();
 		if (!marketId) return c.json({ markets })
 		return c.json({ markets: markets.filter((m) => m.id === marketId) })
 	})
