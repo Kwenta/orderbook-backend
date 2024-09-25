@@ -1,0 +1,23 @@
+{
+	"extends": ["@kwenta/biome-config"],
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"javascript": {
+		"globals": [
+			"beforeAll",
+			"beforeEach",
+			"afterAll",
+			"afterEach",
+			"test",
+			"describe",
+			"expect",
+			"it"
+		]
+	},
+	"linter": {
+		"rules": {
+			"nursery": {
+				"noConsole": "off"
+			}
+		}
+	}
+}
