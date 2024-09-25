@@ -1,0 +1,25 @@
+{
+  "name": "orderbook-backend",
+  "scripts": {
+    "build": "tsc",
+    "build:dev": "tsc --watch",
+    "dev": "nodemon dist/index.js",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.12.2",
+    "@hono/node-ws": "^1.0.4",
+    "@hono/swagger-ui": "^0.4.1",
+    "@hono/zod-openapi": "^0.16.0",
+    "@types/jest": "^29.5.12",
+    "hono": "^4.5.9",
+    "viem": "^2.21.6",
+    "vitest": "^2.0.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@vitest/coverage-v8": "^2.0.5",
+    "typescript": "^5.6.2"
+  }
+}
