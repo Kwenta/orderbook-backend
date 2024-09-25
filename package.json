@@ -1,17 +1,18 @@
 {
-  "name": "@kwenta/orderbook",
-  "version": "1.0.0",
-  "description": "Orderbook implementation for Synthetix V3 Protocol",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@kwenta/biome-config": "^1.0.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.8.3"
-  }
+	"name": "@kwenta/orderbook",
+	"version": "1.0.0",
+	"description": "Orderbook implementation for Synthetix V3 Protocol",
+	"scripts": {
+		"lint": "biome check .",
+		"lint:fix": "biome check --write ."
+	},
+	"keywords": [],
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"@kwenta/biome-config": "^1.0.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.8.3"
+	}
 }
