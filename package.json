@@ -4,6 +4,7 @@
 	"description": "Orderbook implementation for Synthetix V3 Protocol",
 	"scripts": {
 		"lint": "biome check .",
+		"lint:version": "biome -V",
 		"lint:fix": "biome check --write ."
 	},
 	"keywords": [],
@@ -13,6 +14,6 @@
 		"@kwenta/biome-config": "^1.0.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.8.3"
+		"@biomejs/biome": "1.8.3"
 	}
 }
