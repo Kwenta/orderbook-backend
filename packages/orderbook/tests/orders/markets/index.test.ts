@@ -145,7 +145,7 @@ it.skip('Updates an order', async () => {
 
 it.skip('Deletes an order', async () => {
 	const market = '1'
-	const { order, id: orderId } = await addOrder(market, 1, wallet)
+	const { id: orderId } = await addOrder(market, 1, wallet)
 
 	const res = await app.request(`/orders/market/${market}/${orderId}`, {
 		method: 'DELETE',

@@ -120,7 +120,7 @@ export class MatchingEngine {
 
 	pruneBook() {
 		const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
-		for (const [price, buyOrdersMap] of this.buyOrders) {
+		for (const [_price, buyOrdersMap] of this.buyOrders) {
 			for (const [orderId, { order, signature }] of buyOrdersMap) {
 				if (order.metadata.expiration <= currentTimestamp) {
 					this.deleteOrder(orderId, signature)
@@ -128,7 +128,7 @@ export class MatchingEngine {
 			}
 		}
 
-		for (const [price, sellOrdersMap] of this.sellOrders) {
+		for (const [_price, sellOrdersMap] of this.sellOrders) {
 			for (const [orderId, { order, signature }] of sellOrdersMap) {
 				if (order.metadata.expiration <= currentTimestamp) {
 					this.deleteOrder(orderId, signature)

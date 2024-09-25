@@ -4,4 +4,4 @@ import { app } from './routes'
 	return this.toString()
 }
 
-const server = serve(app)
+const _server = serve(app)
