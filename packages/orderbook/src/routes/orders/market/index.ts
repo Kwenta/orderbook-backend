@@ -133,7 +133,7 @@ marketOrderRouter.openapi(
 		const engine = findEngineOrFail(marketId as MarketId)
 
 		const orderId = await engine.addOrder({
-			order: { ...order, marketId: BigInt(marketId) },
+			order,
 			user,
 			signature,
 		})

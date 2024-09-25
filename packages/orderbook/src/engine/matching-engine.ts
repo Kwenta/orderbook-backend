@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { zeroAddress } from 'viem'
-import { markets } from '../constants'
+import { loadMarkets } from '../markets'
 import { checkSignatureOfOrder } from '../signing'
-import type { Order, int128 } from '../types'
+import type { Order, int } from '../types'
 import type { Market, MarketId } from '../types'
 import { HTTPError } from '../utils'
 
@@ -20,11 +20,12 @@ const checkOrderSignature = async (order: LimitOrder) => {
 
 const checkDeleteSignature = async (lo: LimitOrder) => {
 	const newOrder = structuredClone(lo)
-	newOrder.order.trade.size = BigInt(0) as int128
+	newOrder.order.trade.size = BigInt(0) as int[128]
 	return await checkOrderSignature(newOrder)
 }
 
 export class MatchingEngine {
+	private onChainClosed = false
 	private buyOrders: Map<bigint, Map<string, LimitOrder>>
 	private sellOrders: Map<bigint, Map<string, LimitOrder>>
 	private orderIdToPrice: Map<string, bigint>
@@ -35,7 +36,12 @@ export class MatchingEngine {
 		this.orderIdToPrice = new Map()
 	}
 
+	close() {
+		this.onChainClosed = true
+	}
+
 	async addOrder(orderData: LimitOrderRaw) {
+		if (this.onChainClosed) throw new Error('Market is closed')
 		const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
 		if (orderData.order.metadata.expiration <= currentTimestamp) {
 			throw new Error('Order has expired')
@@ -92,6 +98,7 @@ export class MatchingEngine {
 	}
 
 	async updateOrder(newOrder: LimitOrder & { id: string }) {
+		if (this.onChainClosed) throw new Error('Market is closed')
 		await checkOrderSignature(newOrder)
 
 		// Just remove from memory, not onchain
@@ -161,8 +168,28 @@ export class MatchingEngine {
 
 export const engines = new Map<MarketId, MatchingEngine>()
 
-for (const market of markets) {
-	engines.set(market.id.toLowerCase() as MarketId, new MatchingEngine(market))
+const addMissingEngines = async () => {
+	const markets = await loadMarkets()
+	for (const market of markets) {
+		if (!engines.has(market.id.toLowerCase() as MarketId)) {
+			engines.set(
+				market.id.toLowerCase() as MarketId,
+				new MatchingEngine(market),
+			)
+		}
+	}
+
+	// Validate all markets are still valid
+	for (const [marketId, engine] of engines) {
+		if (!markets.find((m) => m.id === marketId)) {
+			engine.close()
+		}
+	}
+}
+
+export const init = async () => {
+	await addMissingEngines()
+	setTimeout(addMissingEngines, 30 * 1000)
 }
 
 export const findEngineOrFail = (marketId?: MarketId) => {

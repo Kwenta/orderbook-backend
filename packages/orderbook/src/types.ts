@@ -1,6 +1,4 @@
-import type { Address, Prettify } from 'viem'
 import type { ZodEffects, ZodString, z } from 'zod'
-import type { markets } from './constants'
 import type {
 	conditionSchema,
 	metadataSchema,
@@ -9,7 +7,7 @@ import type {
 	traderSchema,
 } from './schemas'
 
-export type Market = (typeof markets)[number]
+export type Market = { id: string; symbol: string }
 export type MarketId = Market['id']
 
 export type Sizes =
