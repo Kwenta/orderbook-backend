@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { findEngineOrFail } from '../../../engine/matching-engine'
+import { findEngineOrFail } from '../engine/matching-engine'
 import {
 	bodySchema,
 	hexString,
@@ -7,12 +7,12 @@ import {
 	orderSchema as oSchema,
 	okSchema,
 	orderId,
-} from '../../../schemas'
-import type { Body } from '../../../schemas'
-import type { MarketId } from '../../../types'
-import { makeSafe, standardResponses } from '../../../utils'
+} from '../schemas'
+import type { Body } from '../schemas'
+import type { MarketId } from '../types'
+import { standardResponses } from '../utils'
 
-export const marketOrderRouter = new OpenAPIHono()
+export const orderRouter = new OpenAPIHono()
 
 const orderSchema = z
 	.object({
@@ -124,74 +124,59 @@ const updateRoute = createRoute({
 	},
 })
 
-marketOrderRouter.openapi(
-	addRoute,
-	makeSafe(async (c) => {
-		const { marketId } = c.req.param()
-		const { order, signature, user } = (await c.req.json()) as Body<typeof addOrderSchema>
+orderRouter.openapi(addRoute, async (c) => {
+	const { marketId } = c.req.param()
+	const { order, signature, user } = (await c.req.json()) as Body<typeof addOrderSchema>
 
-		const engine = findEngineOrFail(marketId as MarketId)
+	const engine = findEngineOrFail(marketId as MarketId)
 
-		const orderId = await engine.addOrder({
-			order,
-			user,
-			signature,
-		})
-
-		return c.json({ success: true, orderId }, 201)
+	const orderId = await engine.addOrder({
+		order,
+		user,
+		signature,
 	})
-)
 
-marketOrderRouter.openapi(
-	getRoute,
-	makeSafe(async (c) => {
-		const { marketId, orderId } = c.req.param()
-		const engine = findEngineOrFail(marketId as MarketId)
-		const data = engine.getOrder(orderId)
+	return c.json({ success: true, orderId }, 201)
+})
 
-		return c.json({ marketId, orderId, data }, 200)
+orderRouter.openapi(getRoute, async (c) => {
+	const { marketId, orderId } = c.req.param()
+	const engine = findEngineOrFail(marketId as MarketId)
+	const data = engine.getOrder(orderId)
+
+	return c.json({ marketId, orderId, data }, 200)
+})
+
+orderRouter.openapi(getAllRoute, async (c) => {
+	const { marketId } = c.req.param()
+	const engine = findEngineOrFail(marketId as MarketId)
+	const data = structuredClone(engine.getOrders())
+
+	data.forEach((d) => {
+		d.signature = undefined
 	})
-)
 
-marketOrderRouter.openapi(
-	getAllRoute,
-	makeSafe(async (c) => {
-		const { marketId } = c.req.param()
-		const engine = findEngineOrFail(marketId as MarketId)
-		const data = structuredClone(engine.getOrders())
+	return c.json(data, 200)
+})
 
-		data.forEach((d) => {
-			d.signature = undefined
-		})
+orderRouter.openapi(updateRoute, async (c) => {
+	const { marketId, orderId } = c.req.param()
+	const newOrder = (await c.req.json()) as Body<typeof updateOrderSchema> & {
+		signature: `0x${string}`
+	}
 
-		return c.json(data, 200)
-	})
-)
+	const engine = findEngineOrFail(marketId as MarketId)
+	await engine.updateOrder({ ...newOrder, id: orderId })
 
-marketOrderRouter.openapi(
-	updateRoute,
-	makeSafe(async (c) => {
-		const { market, orderId } = c.req.param()
-		const newOrder = (await c.req.json()) as Body<typeof updateOrderSchema> & {
-			signature: `0x${string}`
-		}
+	return c.json({ success: true }, 200)
+})
 
-		const engine = findEngineOrFail(market as MarketId)
-		await engine.updateOrder({ ...newOrder, id: orderId })
+orderRouter.openapi(deleteRoute, async (c) => {
+	const { marketId, orderId } = c.req.param()
+	const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>
 
-		return c.json({ success: true }, 200)
-	})
-)
+	const engine = findEngineOrFail(marketId as MarketId)
+	await engine.deleteOrder(orderId, signature)
 
-marketOrderRouter.openapi(
-	deleteRoute,
-	makeSafe(async (c) => {
-		const { market, orderId } = c.req.param()
-		const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>
-
-		const engine = findEngineOrFail(market as MarketId)
-		await engine.deleteOrder(orderId, signature)
-
-		return c.json({ success: true }, 200)
-	})
-)
+	return c.json({ success: true }, 200)
+})

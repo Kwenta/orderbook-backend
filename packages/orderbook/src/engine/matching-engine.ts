@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto'
+import { HTTPException } from 'hono/http-exception'
 import { zeroAddress } from 'viem'
 import { loadMarkets } from '../markets'
 import { checkSignatureOfOrder } from '../signing'
 import type { Order, int } from '../types'
 import type { Market, MarketId } from '../types'
-import { HTTPError } from '../utils'
 
 type Hex = `0x${string}`
 
@@ -187,10 +187,10 @@ export const init = async () => {
 }
 
 export const findEngineOrFail = (marketId?: MarketId) => {
-	if (!marketId) throw new HTTPError(400, 'The market was not provided')
+	if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
 
 	const engine = engines.get(marketId.toLowerCase() as MarketId)
-	if (!engine) throw new HTTPError(404, 'The market was not found')
+	if (!engine) throw new HTTPException(404, { message: 'The market was not found' })
 
 	return engine
 }
