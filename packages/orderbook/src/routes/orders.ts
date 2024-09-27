@@ -8,8 +8,6 @@ import {
 	okSchema,
 	orderId,
 } from '../schemas'
-import type { Body } from '../schemas'
-import type { MarketId } from '../types'
 import { standardResponses } from '../utils'
 
 export const orderRouter = new OpenAPIHono()
@@ -38,7 +36,15 @@ const updateOrderSchema = {
 	params: z.object({ marketId, orderId }),
 	body: {
 		content: {
-			'application/json': { schema: orderSchema },
+			'application/json': {
+				schema: orderSchema.merge(
+					z.object({
+						signature: hexString.refine((s) => s.length === 132, {
+							message: 'Signature must be 132 characters long',
+						}),
+					})
+				),
+			},
 		},
 	},
 }
@@ -68,11 +74,13 @@ const addRoute = createRoute({
 	},
 })
 
+const getQuerySchema = z.object({ marketId, orderId })
+
 const getRoute = createRoute({
 	method: 'get',
 	path: '/{marketId}/{orderId}',
 	request: {
-		params: z.object({ marketId, orderId }),
+		params: getQuerySchema,
 	},
 	responses: {
 		200: okSchema(orderSchema.describe('Order data'), 'Get the data for an order'),
@@ -80,11 +88,13 @@ const getRoute = createRoute({
 	},
 })
 
+const getAllSchema = z.object({ marketId })
+
 const getAllRoute = createRoute({
 	method: 'get',
 	path: '/{marketId}',
 	request: {
-		params: z.object({ marketId }),
+		params: getAllSchema,
 	},
 	responses: {
 		200: okSchema(z.array(orderSchema.describe('Order data')), 'Get the data for all orders '),
@@ -125,10 +135,12 @@ const updateRoute = createRoute({
 })
 
 orderRouter.openapi(addRoute, async (c) => {
-	const { marketId } = c.req.param()
-	const { order, signature, user } = (await c.req.json()) as Body<typeof addOrderSchema>
+	const { marketId } = addOrderSchema.params.parse(c.req.param())
+	const { order, signature, user } = addOrderSchema.body.content['application/json'].schema.parse(
+		await c.req.json()
+	)
 
-	const engine = findEngineOrFail(marketId as MarketId)
+	const engine = findEngineOrFail(marketId)
 
 	const orderId = await engine.addOrder({
 		order,
@@ -140,16 +152,16 @@ orderRouter.openapi(addRoute, async (c) => {
 })
 
 orderRouter.openapi(getRoute, async (c) => {
-	const { marketId, orderId } = c.req.param()
-	const engine = findEngineOrFail(marketId as MarketId)
+	const { marketId, orderId } = getQuerySchema.parse(c.req.param())
+	const engine = findEngineOrFail(marketId)
 	const data = engine.getOrder(orderId)
 
 	return c.json({ marketId, orderId, data }, 200)
 })
 
 orderRouter.openapi(getAllRoute, async (c) => {
-	const { marketId } = c.req.param()
-	const engine = findEngineOrFail(marketId as MarketId)
+	const { marketId } = getAllSchema.parse(c.req.param())
+	const engine = findEngineOrFail(marketId)
 	const data = structuredClone(engine.getOrders())
 
 	data.forEach((d) => {
@@ -160,22 +172,24 @@ orderRouter.openapi(getAllRoute, async (c) => {
 })
 
 orderRouter.openapi(updateRoute, async (c) => {
-	const { marketId, orderId } = c.req.param()
-	const newOrder = (await c.req.json()) as Body<typeof updateOrderSchema> & {
-		signature: `0x${string}`
-	}
+	const { marketId, orderId } = updateOrderSchema.params.parse(c.req.param())
+	const newOrder = updateOrderSchema.body.content['application/json'].schema.parse(
+		await c.req.json()
+	)
 
-	const engine = findEngineOrFail(marketId as MarketId)
+	const engine = findEngineOrFail(marketId)
 	await engine.updateOrder({ ...newOrder, id: orderId })
 
 	return c.json({ success: true }, 200)
 })
 
 orderRouter.openapi(deleteRoute, async (c) => {
-	const { marketId, orderId } = c.req.param()
-	const { signature } = (await c.req.json()) as Body<typeof deleteOrderSchema>
+	const { marketId, orderId } = deleteOrderSchema.params.parse(c.req.param())
+	const { signature } = deleteOrderSchema.body.content['application/json'].schema.parse(
+		await c.req.json()
+	)
 
-	const engine = findEngineOrFail(marketId as MarketId)
+	const engine = findEngineOrFail(marketId)
 	await engine.deleteOrder(orderId, signature)
 
 	return c.json({ success: true }, 200)

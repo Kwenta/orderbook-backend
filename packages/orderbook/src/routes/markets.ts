@@ -5,24 +5,23 @@ import { standardResponses } from '../utils'
 
 export const marketRouter = new OpenAPIHono()
 
+const query = z.object({ marketId: marketId.optional() })
+const marketSchema = z.object({ id: marketId, symbol: z.string() }).openapi('Market')
+const returnSchema = z.array(marketSchema).openapi('Markets')
+
 const route = createRoute({
 	method: 'get',
-	path: '/{marketId?}',
-	request: {
-		params: z.object({ marketId: marketId.optional() }),
-	},
+	path: '/',
+	request: { query },
 	responses: {
-		200: okSchema(
-			z.array(z.object({ marketId })),
-			'Retrieve the details about a specific market or all markets'
-		),
+		200: okSchema(returnSchema, 'Retrieve the details about a specific market or all markets'),
 	},
 	...standardResponses,
 })
 
 marketRouter.openapi(route, async (c) => {
-	const { marketId } = c.req.param()
+	const { marketId } = query.parse(c.req.query())
 	const markets = await loadMarkets()
-	if (!marketId) return c.json({ markets })
-	return c.json({ markets: markets.filter((m) => m.id === marketId) })
+	const data = returnSchema.parse(marketId ? markets.filter((m) => m.id === marketId) : markets)
+	return c.json({ markets: data })
 })

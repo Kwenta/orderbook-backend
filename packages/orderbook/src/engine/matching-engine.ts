@@ -168,8 +168,8 @@ export const engines = new Map<MarketId, MatchingEngine>()
 const addMissingEngines = async () => {
 	const markets = await loadMarkets()
 	for (const market of markets) {
-		if (!engines.has(market.id.toLowerCase() as MarketId)) {
-			engines.set(market.id.toLowerCase() as MarketId, new MatchingEngine(market))
+		if (!engines.has(market.id)) {
+			engines.set(market.id, new MatchingEngine(market))
 		}
 	}
 
@@ -189,7 +189,7 @@ export const init = async () => {
 export const findEngineOrFail = (marketId?: MarketId) => {
 	if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
 
-	const engine = engines.get(marketId.toLowerCase() as MarketId)
+	const engine = engines.get(marketId)
 	if (!engine) throw new HTTPException(404, { message: 'The market was not found' })
 
 	return engine

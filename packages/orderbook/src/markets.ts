@@ -1,3 +1,4 @@
+import { uint128 } from 'schemas'
 import { http, createPublicClient } from 'viem'
 import { base } from 'viem/chains'
 
@@ -44,5 +45,5 @@ export const loadMarkets = async () => {
 	})
 	const perpsV3Markets = markets.filter((m) => m !== BigInt(6300)).map((m) => m.toString())
 	const symbols = await getSymbols(perpsV3Markets)
-	return perpsV3Markets.map((id, i) => ({ id, symbol: symbols[i] }))
+	return perpsV3Markets.map((id, i) => ({ id: uint128().parse(id), symbol: symbols[i] }))
 }

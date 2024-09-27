@@ -7,18 +7,20 @@ import { orderRouter } from './orders'
 
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
+import type { ZodError } from 'zod'
+
+const formatZodErrors = (result: ZodError<any>) => {
+	const errors: { [key: string]: string } = {}
+	for (const [key, value] of Object.entries(result.errors)) {
+		errors[key] = value.message
+	}
+	return errors
+}
 
 export const app = new OpenAPIHono({
 	defaultHook: (result, c) => {
 		if (!result.success) {
-			return c.json(
-				{
-					ok: false,
-					errors: formatZodErrors(result),
-					source: 'custom_error_handler',
-				},
-				422
-			)
+			return c.json({ errors: formatZodErrors(result.error), message: 'Validation Failure' }, 400)
 		}
 	},
 })
