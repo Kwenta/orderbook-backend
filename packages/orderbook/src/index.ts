@@ -8,3 +8,5 @@ import { app } from './routes'
 init()
 
 const _server = serve(app)
+
+// TODO: Add logging and generic error handling

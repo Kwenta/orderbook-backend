@@ -148,18 +148,15 @@ export class MatchingEngine {
 		const matchingOrders: LimitOrder[] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
-			console.log(`Checking for possible settles at price ${price}`)
 			const sellOrdersMap = this.sellOrders.get(price)
 
 			if (sellOrdersMap) {
-				console.log(`Sell orders: ${sellOrdersMap?.size}`)
 				matchingOrders.push(...buyOrdersMap.values())
 				matchingOrders.push(...sellOrdersMap.values())
 			}
 		}
 
 		// TODO: Decide how we order the matching
-		console.log({ matchingOrders })
 
 		// Pair up orders, then recheck for settles
 		return matchingOrders
@@ -172,10 +169,7 @@ const addMissingEngines = async () => {
 	const markets = await loadMarkets()
 	for (const market of markets) {
 		if (!engines.has(market.id.toLowerCase() as MarketId)) {
-			engines.set(
-				market.id.toLowerCase() as MarketId,
-				new MatchingEngine(market),
-			)
+			engines.set(market.id.toLowerCase() as MarketId, new MatchingEngine(market))
 		}
 	}
 

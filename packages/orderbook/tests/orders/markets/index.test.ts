@@ -136,7 +136,6 @@ it.skip('Updates an order', async () => {
 		}),
 	})
 
-	console.log(await res.json())
 	expect(res.status).toBe(200)
 
 	// TODO: Assert order is updated

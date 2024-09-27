@@ -20,7 +20,7 @@ export const makeSafe =
 			if (e instanceof HTTPError) {
 				return c.json({ message: e.message }, e.status)
 			}
-			console.error(e)
+			// console.error(e)
 			c.json({ message: 'An error occurred' }, 500)
 		}
 	}

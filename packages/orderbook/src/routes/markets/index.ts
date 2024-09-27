@@ -22,9 +22,9 @@ const route = createRoute({
 
 marketRouter.openapi(
 	route,
-	makeSafe(async(c) => {
+	makeSafe(async (c) => {
 		const { marketId } = c.req.param()
-		const markets = await loadMarkets();
+		const markets = await loadMarkets()
 		if (!marketId) return c.json({ markets })
 		return c.json({ markets: markets.filter((m) => m.id === marketId) })
 	})
