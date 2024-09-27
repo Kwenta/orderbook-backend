@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto'
+import type { EventEmitter } from 'node:events'
 import { HTTPException } from 'hono/http-exception'
-import { zeroAddress } from 'viem'
+import { type Address, zeroAddress } from 'viem'
 import { loadMarkets } from '../markets'
 import { checkSignatureOfOrder } from '../signing'
 import type { Order, int } from '../types'
 import type { Market, MarketId } from '../types'
+import { emitters } from './events'
 
 type Hex = `0x${string}`
 
@@ -30,14 +32,49 @@ export class MatchingEngine {
 	private sellOrders: Map<bigint, Map<string, LimitOrder>>
 	private orderIdToPrice: Map<string, bigint>
 
+	private eventEmitter: EventEmitter
+
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
 		this.sellOrders = new Map()
 		this.orderIdToPrice = new Map()
+		this.eventEmitter = emitters.get(market.id)!
+
+		if (!this.eventEmitter) {
+			throw new Error(`Event emitter not found for market ${market.id}`)
+		}
+
+		this.eventEmitter.on('liquidation', (user: Address) => {
+			this.removeUserOrders(user)
+		})
 	}
 
 	close() {
 		this.onChainClosed = true
+	}
+
+	removeUserOrders(user: Address) {
+		for (const [price, priceMap] of this.buyOrders) {
+			for (const [orderId, { user: orderUser }] of priceMap) {
+				if (orderUser === user) {
+					this.orderIdToPrice.delete(orderId)
+					priceMap.delete(orderId)
+					if (priceMap.size === 0) this.buyOrders.delete(price)
+				}
+			}
+		}
+
+		for (const [price, priceMap] of this.sellOrders) {
+			for (const [orderId, { user: orderUser }] of priceMap) {
+				if (orderUser === user) {
+					this.orderIdToPrice.delete(orderId)
+					priceMap.delete(orderId)
+					if (priceMap.size === 0) this.sellOrders.delete(price)
+				}
+			}
+		}
+
+		this.checkForPossibleSettles()
 	}
 
 	async addOrder(orderData: LimitOrderRaw) {
