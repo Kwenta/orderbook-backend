@@ -1,6 +1,6 @@
 import { loadMarkets } from '../markets'
 import type { MarketId } from '../types'
-import EventEmitter = require('node:events')
+import {EventEmitter} from 'node:events';
 
 export const emitters = new Map<MarketId, EventEmitter>()
 
