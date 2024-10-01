@@ -5,8 +5,11 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"dev": "tsx watch src/demo.ts"
+		"dev": "tsx watch src/demo.ts",
+		"build": "tsc"
 	},
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
