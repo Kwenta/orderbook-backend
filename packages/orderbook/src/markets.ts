@@ -1,6 +1,6 @@
-import { uint128 } from 'schemas'
 import { http, createPublicClient } from 'viem'
 import { base } from 'viem/chains'
+import { uint128 } from './schemas'
 
 const baseClient = createPublicClient({
 	chain: base,
