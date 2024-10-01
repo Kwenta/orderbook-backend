@@ -3,8 +3,6 @@ import { loadMarkets } from '../markets'
 import { marketId, okSchema } from '../schemas'
 import { standardResponses } from '../utils'
 
-export const marketRouter = new OpenAPIHono()
-
 const query = z.object({ marketId: marketId.optional() })
 const marketSchema = z.object({ id: marketId, symbol: z.string() }).openapi('Market')
 const returnSchema = z.array(marketSchema).openapi('Markets')
@@ -19,7 +17,7 @@ const route = createRoute({
 	...standardResponses,
 })
 
-marketRouter.openapi(route, async (c) => {
+export const marketRouter = new OpenAPIHono().openapi(route, async (c) => {
 	const { marketId } = query.parse(c.req.query())
 	const markets = await loadMarkets()
 	const data = returnSchema.parse(marketId ? markets.filter((m) => m.id === marketId) : markets)
