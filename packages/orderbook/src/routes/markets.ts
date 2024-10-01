@@ -20,6 +20,9 @@ const route = createRoute({
 export const marketRouter = new OpenAPIHono().openapi(route, async (c) => {
 	const { marketId } = query.parse(c.req.query())
 	const markets = await loadMarkets()
-	const data = returnSchema.parse(marketId ? markets.filter((m) => m.id === marketId) : markets)
+	const filteredMarkets = marketId ? markets.filter((m) => m.id === marketId) : markets
+	const marketsFormatted = filteredMarkets.map(({ id, symbol }) => ({ id: id.toString(), symbol }))
+
+	const data = returnSchema.parse(marketsFormatted)
 	return c.json(data, 200)
 })
