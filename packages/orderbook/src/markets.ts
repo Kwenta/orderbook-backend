@@ -1,6 +1,9 @@
+import { config } from 'dotenv'
 import { http, createPublicClient } from 'viem'
 import { base } from 'viem/chains'
 import { uint128 } from './schemas'
+
+config()
 
 const baseClient = createPublicClient({
 	chain: base,
