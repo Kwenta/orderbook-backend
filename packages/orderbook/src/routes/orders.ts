@@ -152,9 +152,13 @@ export const orderRouter = new OpenAPIHono()
 	.openapi(getRoute, async (c) => {
 		const { marketId, orderId } = getQuerySchema.parse(c.req.param())
 		const engine = findEngineOrFail(marketId)
-		const data = engine.getOrder(orderId)
+		const order = engine.getOrder(orderId)
 
-		return c.json({ marketId, orderId, data }, 200)
+		const data = structuredClone(order)
+		// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
+		data.signature = undefined
+
+		return c.json(data, 200)
 	})
 	.openapi(getAllRoute, async (c) => {
 		const { marketId } = getAllSchema.parse(c.req.param())
@@ -162,7 +166,7 @@ export const orderRouter = new OpenAPIHono()
 		const data = structuredClone(engine.getOrders())
 
 		data.forEach((d) => {
-			// @ts-expect-error - we don't want to expose the signature
+			// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
 			d.signature = undefined
 		})
 

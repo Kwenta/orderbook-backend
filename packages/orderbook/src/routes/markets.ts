@@ -13,13 +13,13 @@ const route = createRoute({
 	request: { query },
 	responses: {
 		200: okSchema(returnSchema, 'Retrieve the details about a specific market or all markets'),
+		...standardResponses,
 	},
-	...standardResponses,
 })
 
 export const marketRouter = new OpenAPIHono().openapi(route, async (c) => {
 	const { marketId } = query.parse(c.req.query())
 	const markets = await loadMarkets()
 	const data = returnSchema.parse(marketId ? markets.filter((m) => m.id === marketId) : markets)
-	return c.json({ markets: data })
+	return c.json(data, 200)
 })
