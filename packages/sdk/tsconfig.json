@@ -6,7 +6,16 @@
 		"outDir": "./dist",
 		"baseUrl": "./src",
 		"skipLibCheck": true,
-		"downlevelIteration": true
+		"downlevelIteration": true,
+		"lib": ["es2022", "DOM", "DOM.Iterable"],
+		"moduleDetection": "force",
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true,
+		"target": "ES2022",
+		"plugins": [{ "name": "next" }],
+		"module": "ESNext",
+		"moduleResolution": "Bundler"
 	},
+	"include": ["src/**/*.ts"],
 	"exclude": ["tests", "*.ts"]
 }
