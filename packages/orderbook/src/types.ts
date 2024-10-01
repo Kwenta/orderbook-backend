@@ -7,7 +7,7 @@ import type {
 	traderSchema,
 } from './schemas'
 
-export type Market = { id: string; symbol: string }
+export type Market = { id: uint[128]; symbol: string }
 export type MarketId = Market['id']
 
 export type Sizes =

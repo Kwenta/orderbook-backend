@@ -1,9 +1,10 @@
 import { type Account, zeroAddress } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { TRACKING_CODE, markets } from '../../../src/constants'
-import { app } from '../../../src/routes'
-import { domain, hashOfOrder, orderTypes } from '../../../src/signing'
-import { OrderType } from '../../../src/types'
+import { TRACKING_CODE } from '../../src/constants'
+import { loadMarkets } from '../../src/markets'
+import { app } from '../../src/routes'
+import { domain, hashOfOrder, orderTypes } from '../../src/signing'
+import { OrderType } from '../../src/types'
 ;(BigInt.prototype as any).toJSON = function () {
 	return this.toString()
 }
@@ -52,6 +53,7 @@ const addOrder = async (market: string, nonce: number, signer: Account) => {
 }
 
 it('Adds an order', async () => {
+	const markets = await loadMarkets()
 	const marketId = markets[0].id
 	const order = {
 		metadata: {
@@ -93,6 +95,7 @@ it('Adds an order', async () => {
 })
 
 it('Gets an order', async () => {
+	const markets = await loadMarkets()
 	const marketId = markets[0].id
 	// Add order to get
 	const { order, id: orderId, signature } = await addOrder(marketId, 1, wallet)
@@ -117,7 +120,8 @@ it('Gets an order', async () => {
 })
 
 it.skip('Updates an order', async () => {
-	const market = '1'
+	const markets = await loadMarkets()
+	const market = markets[0].id
 	const { order, id: orderId } = await addOrder(market, 1, wallet)
 
 	const newOrder = structuredClone(order)
@@ -137,13 +141,13 @@ it.skip('Updates an order', async () => {
 	})
 
 	expect(res.status).toBe(200)
-
 	// TODO: Assert order is updated
 	expect(await res.json()).toEqual({ success: true })
 })
 
 it.skip('Deletes an order', async () => {
-	const market = '1'
+	const markets = await loadMarkets()
+	const market = markets[0].id
 	const { id: orderId } = await addOrder(market, 1, wallet)
 
 	const res = await app.request(`/orders/market/${market}/${orderId}`, {

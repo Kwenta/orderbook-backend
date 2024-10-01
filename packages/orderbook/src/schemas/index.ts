@@ -107,8 +107,8 @@ export const orderSchema = z.object({
 })
 
 export const paginationSchema = z.object({
-	offset: z.number().optional().default(0),
-	limit: z.number().optional().default(10),
+	offset: z.string().transform((x) => (x ? Number.parseInt(x) : 0)),
+	limit: z.string().transform((x) => (x ? Number.parseInt(x) : 10)),
 })
 
 export const bodySchema = (schema: z.ZodSchema) => ({
