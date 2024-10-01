@@ -6,7 +6,9 @@
 		"lint": "biome check .",
 		"lint:version": "biome -V",
 		"lint:fix": "biome check --write .",
-		"dev": "pnpm run --filter \"orderbook*\" --stream --parallel dev"
+		"dev": "pnpm run --filter \"orderbook*\" --stream --parallel dev",
+		"dev:sdk": "pnpm run --filter \"orderbook-sdk\" --stream --parallel dev",
+		"dev:backend": "pnpm run --filter \"orderbook-backend\" --stream --parallel dev"
 	},
 	"keywords": [],
 	"author": "",
