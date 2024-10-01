@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "hono/jsx",
+		"outDir": "./dist",
+		"baseUrl": "./src",
+		"skipLibCheck": true,
+		"downlevelIteration": true
+	},
+	"exclude": ["tests", "*.ts"]
+}
