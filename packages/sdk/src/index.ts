@@ -47,7 +47,6 @@ export class OrderbookSDK {
 			transport: http(rpcUrl),
 			chain: base,
 		})
-
 		this.account = account
 	}
 
