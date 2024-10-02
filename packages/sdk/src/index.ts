@@ -1,3 +1,4 @@
+import type { AppRouter } from '@orderbook/routes'
 import { hc } from 'hono/client'
 import {
 	http,
@@ -12,7 +13,6 @@ import {
 	createPublicClient,
 } from 'viem'
 import { base } from 'viem/chains'
-import type { AppRouter } from '../../orderbook/src/routes/index'
 
 // Обобщенный тип для параметров подписи
 type GenericSignMessageParameters = {
