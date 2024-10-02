@@ -3,8 +3,6 @@ import { findEngineOrFail } from '../engine/matching-engine'
 import { marketId, okSchema, orderSchema, paginationSchema } from '../schemas'
 import { standardResponses } from '../utils'
 
-export const bookRouter = new OpenAPIHono()
-
 const query = paginationSchema.merge(z.object({ marketId }))
 const returnSchema = z.object({ marketId, orders: z.array(orderSchema) }).openapi('Book')
 
@@ -18,7 +16,7 @@ const route = createRoute({
 	...standardResponses,
 })
 
-bookRouter.openapi(route, (c) => {
+export const bookRouter = new OpenAPIHono().openapi(route, (c) => {
 	const { offset, limit, marketId } = query.parse(c.req.query())
 
 	const engine = findEngineOrFail(marketId)

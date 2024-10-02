@@ -1,8 +1,6 @@
 import { readFileSync } from 'fs'
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 
-export const demoRouter = new OpenAPIHono()
-
 const demoRoute = createRoute({
 	method: 'get',
 	path: '/',
@@ -16,7 +14,8 @@ const demoRoute = createRoute({
 	},
 })
 
-demoRouter.openapi(demoRoute, (c) => {
+// @ts-expect-error
+export const demoRouter = new OpenAPIHono().openapi(demoRoute, (c) => {
 	const demoCSS = readFileSync('./static/index.css', 'utf-8')
 	const demoPage = readFileSync('./static/index.html', 'utf-8').replace(
 		'<title>Dashboard</title>',

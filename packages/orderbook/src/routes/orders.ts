@@ -10,8 +10,6 @@ import {
 } from '../schemas'
 import { standardResponses } from '../utils'
 
-export const orderRouter = new OpenAPIHono()
-
 const orderSchema = z
 	.object({
 		id: z.string().describe('The unique identifier of the order'),
@@ -134,63 +132,65 @@ const updateRoute = createRoute({
 	},
 })
 
-orderRouter.openapi(addRoute, async (c) => {
-	const { marketId } = addOrderSchema.params.parse(c.req.param())
-	const { order, signature, user } = addOrderSchema.body.content['application/json'].schema.parse(
-		await c.req.json()
-	)
+export const orderRouter = new OpenAPIHono()
+	.openapi(addRoute, async (c) => {
+		const { marketId } = addOrderSchema.params.parse(c.req.param())
+		const { order, signature, user } = addOrderSchema.body.content['application/json'].schema.parse(
+			await c.req.json()
+		)
 
-	const engine = findEngineOrFail(marketId)
+		const engine = findEngineOrFail(marketId)
 
-	const orderId = await engine.addOrder({
-		order,
-		user,
-		signature,
+		const orderId = await engine.addOrder({
+			order,
+			user,
+			signature,
+		})
+
+		return c.json({ success: true, orderId }, 201)
 	})
+	.openapi(getRoute, async (c) => {
+		const { marketId, orderId } = getQuerySchema.parse(c.req.param())
+		const engine = findEngineOrFail(marketId)
+		const order = engine.getOrder(orderId)
 
-	return c.json({ success: true, orderId }, 201)
-})
+		const data = structuredClone(order)
+		// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
+		data.signature = undefined
 
-orderRouter.openapi(getRoute, async (c) => {
-	const { marketId, orderId } = getQuerySchema.parse(c.req.param())
-	const engine = findEngineOrFail(marketId)
-	const data = engine.getOrder(orderId)
-
-	return c.json({ marketId, orderId, data }, 200)
-})
-
-orderRouter.openapi(getAllRoute, async (c) => {
-	const { marketId } = getAllSchema.parse(c.req.param())
-	const engine = findEngineOrFail(marketId)
-	const data = structuredClone(engine.getOrders())
-
-	data.forEach((d) => {
-		d.signature = undefined
+		return c.json(data, 200)
 	})
+	.openapi(getAllRoute, async (c) => {
+		const { marketId } = getAllSchema.parse(c.req.param())
+		const engine = findEngineOrFail(marketId)
+		const data = structuredClone(engine.getOrders())
 
-	return c.json(data, 200)
-})
+		data.forEach((d) => {
+			// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
+			d.signature = undefined
+		})
 
-orderRouter.openapi(updateRoute, async (c) => {
-	const { marketId, orderId } = updateOrderSchema.params.parse(c.req.param())
-	const newOrder = updateOrderSchema.body.content['application/json'].schema.parse(
-		await c.req.json()
-	)
+		return c.json(data, 200)
+	})
+	.openapi(updateRoute, async (c) => {
+		const { marketId, orderId } = updateOrderSchema.params.parse(c.req.param())
+		const newOrder = updateOrderSchema.body.content['application/json'].schema.parse(
+			await c.req.json()
+		)
 
-	const engine = findEngineOrFail(marketId)
-	await engine.updateOrder({ ...newOrder, id: orderId })
+		const engine = findEngineOrFail(marketId)
+		await engine.updateOrder({ ...newOrder, id: orderId })
 
-	return c.json({ success: true }, 200)
-})
+		return c.json({ success: true }, 200)
+	})
+	.openapi(deleteRoute, async (c) => {
+		const { marketId, orderId } = deleteOrderSchema.params.parse(c.req.param())
+		const { signature } = deleteOrderSchema.body.content['application/json'].schema.parse(
+			await c.req.json()
+		)
 
-orderRouter.openapi(deleteRoute, async (c) => {
-	const { marketId, orderId } = deleteOrderSchema.params.parse(c.req.param())
-	const { signature } = deleteOrderSchema.body.content['application/json'].schema.parse(
-		await c.req.json()
-	)
+		const engine = findEngineOrFail(marketId)
+		await engine.deleteOrder(orderId, signature)
 
-	const engine = findEngineOrFail(marketId)
-	await engine.deleteOrder(orderId, signature)
-
-	return c.json({ success: true }, 200)
-})
+		return c.json({ success: true }, 200)
+	})

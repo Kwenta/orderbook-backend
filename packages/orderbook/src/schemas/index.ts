@@ -119,7 +119,17 @@ export const bodySchema = (schema: z.ZodSchema) => ({
 	},
 })
 
-export const okSchema = (schema: z.ZodSchema, description = '') => ({
+export const okSchema = <T extends z.ZodSchema>(
+	schema: T,
+	description = ''
+): {
+	content: {
+		'application/json': {
+			schema: T
+		}
+	}
+	description: string
+} => ({
 	content: {
 		'application/json': {
 			schema,

@@ -27,10 +27,13 @@ export const app = new OpenAPIHono({
 
 app.use(logger())
 
-app.route('/book', bookRouter)
-app.route('/markets', marketRouter)
-app.route('/orders', orderRouter)
-app.route('/demo', demoRouter)
+const routes = app
+	.route('/book', bookRouter)
+	.route('/markets', marketRouter)
+	.route('/orders', orderRouter)
+	.route('/demo', demoRouter)
+
+export type AppRouter = typeof routes
 
 app.doc('/doc', {
 	openapi: '3.0.0',

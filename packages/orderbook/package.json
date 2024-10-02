@@ -2,8 +2,8 @@
 	"name": "orderbook-backend",
 	"scripts": {
 		"build": "tsc",
-		"build:dev": "tsc --watch",
-		"dev": "nodemon dist/index.js",
+		"dev": "tsx watch src/index.ts",
+		"start": "node dist/index.js",
 		"test": "vitest"
 	},
 	"dependencies": {
@@ -20,6 +20,8 @@
 	"devDependencies": {
 		"@types/node": "latest",
 		"@vitest/coverage-v8": "^2.0.5",
+		"dotenv": "^16.4.5",
+		"tsx": "^4.19.1",
 		"typescript": "^5.6.2"
 	}
 }
