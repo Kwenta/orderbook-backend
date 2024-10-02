@@ -14,13 +14,11 @@ import {
 } from 'viem'
 import { base } from 'viem/chains'
 
-// Обобщенный тип для параметров подписи
 type GenericSignMessageParameters = {
 	message: SignableMessage
 	account?: Address
 }
 
-// Обобщенный тип для параметров подписи типизированных данных
 type GenericSignTypedDataParameters = {
 	domain: Record<string, any>
 	types: Record<string, Array<{ name: string; type: string }>>
@@ -29,7 +27,6 @@ type GenericSignTypedDataParameters = {
 	account?: Address
 }
 
-// Обновленный тип SDKAccount
 type SDKAccount = {
 	address: Address
 	signMessage: (args: GenericSignMessageParameters) => Promise<`0x${string}`>
