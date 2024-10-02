@@ -10,7 +10,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { OrderbookSDK } from '../../../sdk/src/index'
+import { OrderbookSDK } from 'orderbook-sdk'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { type FC, useEffect, useState } from 'react'
@@ -114,7 +114,7 @@ const Playground: FC = () => {
 			}
 			setResult(JSON.stringify(response, null, 2))
 		} catch (error) {
-			setResult(`Ошибка: ${error instanceof Error ? error.message : String(error)}`)
+			setResult(`Error: ${error instanceof Error ? error.message : String(error)}`)
 		}
 	}
 
@@ -138,10 +138,10 @@ const Playground: FC = () => {
 					</div>
 
 					<div>
-						<Label htmlFor="method-select">Метод</Label>
+						<Label htmlFor="method-select">Method</Label>
 						<Select onValueChange={handleMethodChange} value={selectedMethod}>
 							<SelectTrigger id="method-select">
-								<SelectValue placeholder="Выберите метод" />
+								<SelectValue placeholder="Select a method" />
 							</SelectTrigger>
 							<SelectContent>
 								{SDK_METHODS.map((method) => (
@@ -215,11 +215,11 @@ const Playground: FC = () => {
 					)}
 
 					<Button onClick={executeMethod} className="w-full" disabled={!sdk || !address}>
-						Выполнить
+						Execute
 					</Button>
 
 					<div>
-						<Label htmlFor="result">Результат</Label>
+						<Label htmlFor="result">Result</Label>
 						<Textarea id="result" value={result} readOnly className="font-mono h-64" />
 					</div>
 				</div>
