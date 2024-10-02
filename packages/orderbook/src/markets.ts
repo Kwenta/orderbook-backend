@@ -6,8 +6,6 @@ import type { Market } from './types'
 
 config()
 
-config()
-
 const baseClient = createPublicClient({
 	chain: base,
 	transport: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_PROJECT_ID}`),
