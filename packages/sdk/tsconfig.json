@@ -4,7 +4,8 @@
 		"jsx": "react-jsx",
 		"jsxImportSource": "hono/jsx",
 		"outDir": "./dist",
-		"baseUrl": "./src",
+		"baseUrl": ".",
+		"rootDir": "./src",
 		"skipLibCheck": true,
 		"downlevelIteration": true,
 		"lib": ["es2022", "DOM", "DOM.Iterable"],
@@ -14,8 +15,17 @@
 		"target": "ES2022",
 		"plugins": [{ "name": "next" }],
 		"module": "ESNext",
-		"moduleResolution": "Bundler"
+		"moduleResolution": "Bundler",
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"paths": {
+			"@orderbook/*": ["../orderbook/src/*"]
+		}
 	},
 	"include": ["src/**/*.ts"],
-	"exclude": ["tests", "*.ts"]
+	"exclude": ["node_modules", "dist"],
+	"references": [{ "path": "../orderbook" }]
 }

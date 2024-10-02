@@ -3,6 +3,7 @@
 		"strict": true,
 		"jsx": "react-jsx",
 		"jsxImportSource": "hono/jsx",
+		"composite": true,
 		"outDir": "./dist",
 		"baseUrl": "./src",
 		"skipLibCheck": true,
