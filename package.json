@@ -6,17 +6,19 @@
 		"lint": "biome check .",
 		"lint:version": "biome -V",
 		"lint:fix": "biome check --write .",
-		"dev": "pnpm run --filter \"orderbook*\" --stream --parallel dev",
-		"dev:sdk": "pnpm run --filter \"orderbook-sdk\" dev",
-		"dev:backend": "pnpm run --filter \"orderbook-backend\" dev"
+		"dev": "pnpm run clean && pnpm run build:sdk && concurrently \"pnpm:dev:*\"",
+		"dev:sdk": "pnpm --filter orderbook-sdk run dev",
+		"dev:backend": "pnpm --filter orderbook-backend run dev",
+		"dev:playground": "pnpm --filter orderbook-playground run dev",
+		"build:sdk": "pnpm --filter orderbook-sdk run build",
+		"clean": "pnpm run --filter \"orderbook*\" --parallel clean"
 	},
 	"keywords": [],
 	"author": "",
 	"license": "MIT",
-	"dependencies": {
-		"@kwenta/biome-config": "^1.0.0"
-	},
 	"devDependencies": {
-		"@biomejs/biome": "1.8.3"
+		"@biomejs/biome": "1.8.3",
+		"@kwenta/biome-config": "^1.0.0",
+		"concurrently": "^9.0.1"
 	}
 }
