@@ -13,9 +13,9 @@
 		"noUncheckedIndexedAccess": true,
 		"resolveJsonModule": true,
 		"target": "ES2022",
-		"plugins": [{ "name": "next" }],
 		"module": "ESNext",
 		"moduleResolution": "Bundler"
 	},
+	"include": ["src/**/*"],
 	"exclude": ["tests", "*.ts"]
 }
