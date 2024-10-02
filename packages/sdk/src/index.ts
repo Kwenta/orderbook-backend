@@ -1,14 +1,44 @@
+import type { AppRouter } from '@orderbook/routes'
 import { hc } from 'hono/client'
-import { http, type Account, type HttpTransport, type PublicClient, createPublicClient } from 'viem'
+import {
+	http,
+	type Address,
+	type HttpTransport,
+	type PublicClient,
+	type SignMessageParameters,
+	type SignMessageReturnType,
+	type SignTypedDataParameters,
+	type SignTypedDataReturnType,
+	type SignableMessage,
+	createPublicClient,
+} from 'viem'
 import { base } from 'viem/chains'
-import type { AppRouter } from '../../orderbook/src/routes/index'
+
+type GenericSignMessageParameters = {
+	message: SignableMessage
+	account?: Address
+}
+
+type GenericSignTypedDataParameters = {
+	domain: Record<string, any>
+	types: Record<string, Array<{ name: string; type: string }>>
+	primaryType: string
+	message: Record<string, any>
+	account?: Address
+}
+
+type SDKAccount = {
+	address: Address
+	signMessage: (args: GenericSignMessageParameters) => Promise<`0x${string}`>
+	signTypedData: (args: GenericSignTypedDataParameters) => Promise<`0x${string}`>
+}
 
 export class OrderbookSDK {
 	private readonly client: ReturnType<typeof hc<AppRouter>>
 	private readonly publicClient: PublicClient<HttpTransport, typeof base>
-	private readonly account?: Account
+	private readonly account?: SDKAccount
 
-	constructor(apiUrl: string, rpcUrl?: string, account?: Account) {
+	constructor(apiUrl: string, rpcUrl?: string, account?: SDKAccount) {
 		this.client = hc<AppRouter>(apiUrl)
 		this.publicClient = createPublicClient({
 			transport: http(rpcUrl),

@@ -5,6 +5,7 @@ import { demoRouter } from './demo'
 import { marketRouter } from './markets'
 import { orderRouter } from './orders'
 
+import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import type { ZodError } from 'zod'
@@ -26,7 +27,13 @@ export const app = new OpenAPIHono({
 })
 
 app.use(logger())
-
+app.use(
+	cors({
+		origin: '*',
+		allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowHeaders: ['Accept', 'Content-Type', 'Authorization'],
+	})
+)
 const routes = app
 	.route('/book', bookRouter)
 	.route('/markets', marketRouter)
