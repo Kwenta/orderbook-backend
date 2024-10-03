@@ -7,6 +7,7 @@ import { checkSignatureOfOrder } from '../signing'
 import type { HexString, Order, int } from '../types'
 import type { Market, MarketId } from '../types'
 import { emitters } from './events'
+import { incrementNonce, nonceOfUser } from './nonce'
 
 type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }
 
@@ -82,6 +83,10 @@ export class MatchingEngine {
 			throw new Error('Order has expired')
 		}
 
+		if (orderData.order.trader.nonce !== nonceOfUser(orderData.user).nonce) {
+			throw new Error('Invalid nonce')
+		}
+
 		const orderWithId: LimitOrder = {
 			...orderData,
 			id: randomBytes(16).toString('hex'),
@@ -102,6 +107,8 @@ export class MatchingEngine {
 
 		orderMap.get(price)?.set(id, orderWithId)
 		this.orderIdToPrice.set(id, price)
+
+		incrementNonce(orderData.user)
 
 		await this.checkForPossibleSettles()
 		return id
@@ -158,7 +165,7 @@ export class MatchingEngine {
 		this.addOrder(newOrder)
 	}
 
-	async deleteOrder(orderId: string, signature: Hex) {
+	async deleteOrder(orderId: string, signature: HexString) {
 		const order = this.getOrder(orderId)
 		if (!order) {
 			throw new Error('Order not found')
