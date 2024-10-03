@@ -12,7 +12,9 @@
 			"types": "./dist/index.d.ts"
 		}
 	},
-	"files": ["dist"],
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "tsc --build",
 		"dev": "tsc --watch",
@@ -23,6 +25,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"@kwenta/sdk": "^1.2.0",
 		"hono": "^4.5.9",
 		"viem": "^2.21.6"
 	},
