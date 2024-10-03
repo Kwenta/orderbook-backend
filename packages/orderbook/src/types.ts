@@ -150,3 +150,5 @@ export type Trade = z.infer<typeof tradeSchema>
 export type Condition = z.infer<typeof conditionSchema>
 
 export type Order = z.infer<typeof orderSchema>
+
+export type AccountId = Trader['accountId']
