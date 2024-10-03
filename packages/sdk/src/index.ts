@@ -1,16 +1,18 @@
+import KwentaSDK from '@kwenta/sdk'
+import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
 import type { AppRouter } from '@orderbook/routes'
+import { bytes32 } from '@orderbook/schemas/solidity'
+import { type Market, type Order, OrderType } from '@orderbook/types'
 import { hc } from 'hono/client'
 import {
 	http,
 	type Address,
 	type HttpTransport,
 	type PublicClient,
-	type SignMessageParameters,
-	type SignMessageReturnType,
-	type SignTypedDataParameters,
-	type SignTypedDataReturnType,
 	type SignableMessage,
 	createPublicClient,
+	stringToHex,
+	zeroAddress,
 } from 'viem'
 import { base } from 'viem/chains'
 
@@ -38,6 +40,9 @@ export class OrderbookSDK {
 	private readonly publicClient: PublicClient<HttpTransport, typeof base>
 	private readonly account?: SDKAccount
 
+	private kwentaSdk: KwentaSDK
+
+	private accountId?: bigint
 	constructor(apiUrl: string, rpcUrl?: string, account?: SDKAccount) {
 		this.client = hc<AppRouter>(apiUrl)
 		this.publicClient = createPublicClient({
@@ -45,17 +50,50 @@ export class OrderbookSDK {
 			chain: base,
 		})
 		this.account = account
+
+		this.kwentaSdk = new KwentaSDK({
+			apiUrl: 'https://api.kwenta.io',
+			supportedChains: {
+				[SupportedNetworkIds.BASE_MAINNET]: rpcUrl ? [rpcUrl] : [],
+			},
+			logError: console.error,
+			walletAddress: account?.address,
+		})
+
+		if (account) {
+			this.getAccountId()
+		}
+	}
+
+	private async getAccountId() {
+		if (!this.account) {
+			return
+		}
+
+		const accountIds = await this.kwentaSdk.snxPerpsV3.getAccounts(
+			this.account.address,
+			true,
+			SnxV3NetworkIds.BASE_MAINNET
+		)
+
+		if (accountIds.length === 0) {
+			throw new Error('Account not found')
+		}
+
+		this.accountId = accountIds?.[0]?.accountId
+
+		return this.accountId
 	}
 
 	async getMarkets() {
 		const response = await this.client.markets.$get({ query: {} })
 
-		return await response.json()
+		return (await response.json()) as unknown as Promise<Market[]>
 	}
 
 	async getMarket(id: bigint) {
 		const response = await this.client.markets.$get({ query: { marketId: id.toString() } })
-		return response.json()
+		return response.json() as Promise<Market>
 	}
 
 	async getOrders(marketId: bigint) {
@@ -72,21 +110,70 @@ export class OrderbookSDK {
 		return response.json()
 	}
 
-	// async createOrder(marketId: bigint, order: z.infer<typeof orderSchema>) {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for creating orders')
-	// 	}
-	// 	const signature = await this.signOrder(order)
-	// 	const response = await this.client.orders[':marketId'].$post({
-	// 		param: { marketId },
-	// 		json: {
-	// 			order,
-	// 			signature,
-	// 			user: this.account.address,
-	// 		},
-	// 	})
-	// 	return response.json()
-	// }
+	async createOrder(marketId: bigint, orderType: typeof OrderType, size: bigint, price: bigint) {
+		if (!this.account) {
+			throw new Error('Account is required for creating orders')
+		}
+
+		const accountId = await this.getAccountId()
+
+		if (!accountId) {
+			throw new Error('Account ID not found')
+		}
+
+		const nonce = await this.getNonce()
+
+		const now = Date.now()
+		const oneMonthAfter = now + 30 * 24 * 60 * 60 * 1000
+
+		const order = {
+			conditions: [],
+			metadata: {
+				expiration: BigInt(oneMonthAfter),
+				genesis: BigInt(now),
+				referrer: zeroAddress,
+				trackingCode: stringToHex('KWENTA', { size: 32 }),
+			},
+			trader: {
+				accountId,
+				nonce,
+				signer: this.account.address,
+			},
+			trade: {
+				marketId,
+				orderType: orderType,
+				price,
+				size,
+			},
+		}
+
+		const signature = await this.account.signTypedData({})
+
+		// const signature = await this.signOrder(order)
+		// const response = await this.client.orders[':marketId'].$post({
+		// 	param: { marketId },
+		// 	json: {
+		// 		order,
+		// 		signature,
+		// 		user: this.account.address,
+		// 	},
+		// })
+		// return response.json()
+	}
+
+	private async getNonce() {
+		if (!this.account) {
+			throw new Error('Account is required for getting nonce')
+		}
+
+		const response = await this.client.user.nonce.$get({
+			query: { user: this.account.address },
+		})
+
+		const { nonce } = await response.json()
+
+		return nonce as unknown as bigint
+	}
 
 	// async updateOrder(
 	// 	marketId: z.infer<typeof marketId>,
