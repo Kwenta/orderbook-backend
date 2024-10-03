@@ -4,15 +4,13 @@ import { HTTPException } from 'hono/http-exception'
 import { type Address, zeroAddress } from 'viem'
 import { loadMarkets } from '../markets'
 import { checkSignatureOfOrder } from '../signing'
-import type { Order, int } from '../types'
+import type { HexString, Order, int } from '../types'
 import type { Market, MarketId } from '../types'
 import { emitters } from './events'
 
-type Hex = `0x${string}`
-
 type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }
 
-type LimitOrderRaw = { signature: Hex; user: Hex; order: Order }
+type LimitOrderRaw = { signature: HexString; user: HexString; order: Order }
 
 const side = (order: Order) => (order.trade.size < BigInt(0) ? 'sell' : 'buy')
 
@@ -127,11 +125,27 @@ export class MatchingEngine {
 		}
 	}
 
-	getOrder(orderId: string) {
+	getOrdersWithoutSigs(
+		type: 'buy' | 'sell' | 'all' = 'all',
+		price?: bigint
+	): Omit<LimitOrder, 'signature'>[] {
+		const orders = this.getOrders(type, price)
+		return orders.map(({ signature, ...order }) => order)
+	}
+
+	getOrder(orderId: string): LimitOrder | undefined {
 		const price = this.orderIdToPrice.get(orderId)
 		if (price === undefined) return undefined
 
 		return this.buyOrders.get(price)?.get(orderId) || this.sellOrders.get(price)?.get(orderId)
+	}
+
+	getOrderWithoutSig(orderId: string): Omit<LimitOrder, 'signature'> | undefined {
+		const order = this.getOrder(orderId)
+		if (!order) return undefined
+
+		const { signature, ...orderWithoutSig } = order
+		return orderWithoutSig
 	}
 
 	async updateOrder(newOrder: LimitOrder & { id: string }) {

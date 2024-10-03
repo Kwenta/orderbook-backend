@@ -1,65 +1,30 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { findEngineOrFail } from '../engine/matching-engine'
 import {
-	bodySchema,
-	hexString,
+	http,
 	marketId,
-	orderSchema as oSchema,
-	okSchema,
 	orderId,
+	signedOrderSchema,
+	solidity,
+	unsignedOrderSchema,
 } from '../schemas'
 import { standardResponses } from '../utils'
-
-const orderSchema = z
-	.object({
-		id: z.string().describe('The unique identifier of the order'),
-		order: oSchema,
-		user: hexString,
-		signature: hexString.refine((s) => s.length === 132, {
-			message: 'Signature must be 132 characters long',
-		}),
-	})
-	.openapi('SignedOrder')
-
-const addOrderSchema = {
-	params: z.object({ marketId }),
-	body: {
-		content: {
-			'application/json': { schema: orderSchema.omit({ id: true }) },
-		},
-	},
-}
-
-const updateOrderSchema = {
-	params: z.object({ marketId, orderId }),
-	body: {
-		content: {
-			'application/json': {
-				schema: orderSchema.merge(
-					z.object({
-						signature: hexString.refine((s) => s.length === 132, {
-							message: 'Signature must be 132 characters long',
-						}),
-					})
-				),
-			},
-		},
-	},
-}
-
-const deleteOrderSchema = {
-	params: z.object({ marketId, orderId }),
-	body: bodySchema(z.object({ signature: z.string() })),
-}
 
 const addRoute = createRoute({
 	method: 'post',
 	path: '/{marketId}',
-	request: addOrderSchema,
+	request: {
+		params: z.object({ marketId }),
+		body: {
+			content: {
+				'application/json': { schema: signedOrderSchema.omit({ id: true }) },
+			},
+		},
+	},
 	responses: {
-		201: okSchema(
+		201: http.okSchema(
 			z.object({
-				success: z.boolean({
+				success: z.literal(true, {
 					description: 'If the order was added to the book',
 				}),
 				orderId: z.string({
@@ -72,30 +37,26 @@ const addRoute = createRoute({
 	},
 })
 
-const getQuerySchema = z.object({ marketId, orderId })
-
 const getRoute = createRoute({
 	method: 'get',
 	path: '/{marketId}/{orderId}',
 	request: {
-		params: getQuerySchema,
+		params: z.object({ marketId, orderId }),
 	},
 	responses: {
-		200: okSchema(orderSchema.describe('Order data'), 'Get the data for an order'),
+		200: http.okSchema(unsignedOrderSchema, 'Get the data for an order'),
 		...standardResponses,
 	},
 })
-
-const getAllSchema = z.object({ marketId })
 
 const getAllRoute = createRoute({
 	method: 'get',
 	path: '/{marketId}',
 	request: {
-		params: getAllSchema,
+		params: z.object({ marketId }),
 	},
 	responses: {
-		200: okSchema(z.array(orderSchema.describe('Order data')), 'Get the data for all orders '),
+		200: http.okSchema(z.array(unsignedOrderSchema), 'Get the data for all orders '),
 		...standardResponses,
 	},
 })
@@ -103,9 +64,12 @@ const getAllRoute = createRoute({
 const deleteRoute = createRoute({
 	method: 'delete',
 	path: '/{marketId}/{orderId}',
-	request: deleteOrderSchema,
+	request: {
+		params: z.object({ marketId, orderId }),
+		body: http.bodySchema(z.object({ signature: solidity.Signature })),
+	},
 	responses: {
-		200: okSchema(
+		200: http.okSchema(
 			z.object({
 				success: z.boolean({
 					description: 'If the order was removed from the book',
@@ -120,9 +84,18 @@ const deleteRoute = createRoute({
 const updateRoute = createRoute({
 	method: 'patch',
 	path: '/{marketId}/{orderId}',
-	request: updateOrderSchema,
+	request: {
+		params: z.object({ marketId, orderId }),
+		body: {
+			content: {
+				'application/json': {
+					schema: signedOrderSchema,
+				},
+			},
+		},
+	},
 	responses: {
-		200: okSchema(
+		200: http.okSchema(
 			z.object({
 				success: z.boolean({ description: 'If the order was updated' }),
 			}),
@@ -134,47 +107,33 @@ const updateRoute = createRoute({
 
 export const orderRouter = new OpenAPIHono()
 	.openapi(addRoute, async (c) => {
-		const { marketId } = addOrderSchema.params.parse(c.req.param())
-		const { order, signature, user } = addOrderSchema.body.content['application/json'].schema.parse(
-			await c.req.json()
-		)
+		const { marketId } = addRoute.request.params.parse(c.req.param())
+		const { order, signature, user } = addRoute.request.body.content[
+			'application/json'
+		].schema.parse(await c.req.json())
 
 		const engine = findEngineOrFail(marketId)
+		const orderId = await engine.addOrder({ order, user, signature })
 
-		const orderId = await engine.addOrder({
-			order,
-			user,
-			signature,
-		})
-
-		return c.json({ success: true, orderId }, 201)
+		return c.json({ success: true as const, orderId }, 201)
 	})
 	.openapi(getRoute, async (c) => {
-		const { marketId, orderId } = getQuerySchema.parse(c.req.param())
+		const { marketId, orderId } = getRoute.request.params.parse(c.req.param())
 		const engine = findEngineOrFail(marketId)
-		const order = engine.getOrder(orderId)
+		const order = engine.getOrderWithoutSig(orderId)!
 
-		const data = structuredClone(order)
-		// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
-		data.signature = undefined
-
-		return c.json(data, 200)
+		return c.json(order, 200)
 	})
 	.openapi(getAllRoute, async (c) => {
-		const { marketId } = getAllSchema.parse(c.req.param())
+		const { marketId } = getAllRoute.request.params.parse(c.req.param())
 		const engine = findEngineOrFail(marketId)
-		const data = structuredClone(engine.getOrders())
-
-		data.forEach((d) => {
-			// @ts-expect-error TODO: Change the type of the signature to be undefined for all get methods
-			d.signature = undefined
-		})
+		const data = structuredClone(engine.getOrdersWithoutSigs())
 
 		return c.json(data, 200)
 	})
 	.openapi(updateRoute, async (c) => {
-		const { marketId, orderId } = updateOrderSchema.params.parse(c.req.param())
-		const newOrder = updateOrderSchema.body.content['application/json'].schema.parse(
+		const { marketId, orderId } = updateRoute.request.params.parse(c.req.param())
+		const newOrder = updateRoute.request.body.content['application/json'].schema.parse(
 			await c.req.json()
 		)
 
@@ -184,8 +143,8 @@ export const orderRouter = new OpenAPIHono()
 		return c.json({ success: true }, 200)
 	})
 	.openapi(deleteRoute, async (c) => {
-		const { marketId, orderId } = deleteOrderSchema.params.parse(c.req.param())
-		const { signature } = deleteOrderSchema.body.content['application/json'].schema.parse(
+		const { marketId, orderId } = deleteRoute.request.params.parse(c.req.param())
+		const { signature } = deleteRoute.request.body.content['application/json'].schema.parse(
 			await c.req.json()
 		)
 

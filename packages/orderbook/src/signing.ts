@@ -1,5 +1,5 @@
 import { checksumAddress, hashTypedData, recoverTypedDataAddress } from 'viem'
-import type { Order as FullOrder } from './types'
+import type { Order as FullOrder, HexString } from './types'
 
 export const orderTypes = {
 	Order: [
@@ -33,14 +33,14 @@ export const orderTypes = {
 	],
 }
 
-export const domain = (chainId: bigint, contractAddress: `0x${string}`) => ({
+export const domain = (chainId: bigint, contractAddress: HexString) => ({
 	chainId: Number(chainId),
 	verifyingContract: contractAddress,
 	name: 'SyntheticPerpetualFutures',
 	version: '1',
 })
 
-export const hashOfOrder = (order: FullOrder, contractAddress: `0x${string}`, chainId: bigint) => {
+export const hashOfOrder = (order: FullOrder, contractAddress: HexString, chainId: bigint) => {
 	return hashTypedData({
 		domain: domain(chainId, contractAddress),
 		types: orderTypes,
@@ -56,10 +56,10 @@ export const hashOfOrder = (order: FullOrder, contractAddress: `0x${string}`, ch
 
 export const checkSignatureOfOrder = async (
 	order: FullOrder,
-	contractAddress: `0x${string}`,
+	contractAddress: HexString,
 	chainId: bigint,
-	user: `0x${string}`,
-	signature: `0x${string}`
+	user: HexString,
+	signature: HexString
 ) => {
 	const signer = await recoverTypedDataAddress({
 		domain: domain(chainId, contractAddress),
