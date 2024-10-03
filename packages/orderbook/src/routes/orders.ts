@@ -66,7 +66,7 @@ const deleteRoute = createRoute({
 	path: '/{marketId}/{orderId}',
 	request: {
 		params: z.object({ marketId, orderId }),
-		body: http.bodySchema(z.object({ signature: solidity.Signature })),
+		body: http.bodySchema(z.object({ signature: solidity.Signature() })),
 	},
 	responses: {
 		200: http.okSchema(
