@@ -124,7 +124,7 @@ export class OrderbookSDK {
 	// }
 
 	// Helper methods for signing
-	// private async signOrder(_order: z.infer<typeof orderSchema>): Promise<`0x${string}`> {
+	// private async signOrder(_order: z.infer<typeof orderSchema>): Promise<HexString> {
 	// 	if (!this.account) {
 	// 		throw new Error('Account is required for signing orders')
 	// 	}
@@ -133,7 +133,7 @@ export class OrderbookSDK {
 	// 	throw new Error('Not implemented')
 	// }
 
-	// private async signDeleteOrder(_marketId: bigint, _orderId: string): Promise<`0x${string}`> {
+	// private async signDeleteOrder(_marketId: bigint, _orderId: string): Promise<HexString> {
 	// 	if (!this.account) {
 	// 		throw new Error('Account is required for signing delete order requests')
 	// 	}

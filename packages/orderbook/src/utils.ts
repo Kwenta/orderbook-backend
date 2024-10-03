@@ -1,7 +1,7 @@
-import { badRequestSchema, internalServerErrorSchema, notFoundSchema } from './schemas'
+import { http } from './schemas'
 
 export const standardResponses = {
-	400: badRequestSchema,
-	404: notFoundSchema,
-	500: internalServerErrorSchema,
+	400: http.badRequestSchema,
+	404: http.notFoundSchema,
+	500: http.internalServerErrorSchema,
 } as const

@@ -10,6 +10,8 @@ import type {
 export type Market = { id: uint[128]; symbol: string }
 export type MarketId = Market['id']
 
+export type HexString = `0x${string}`
+
 export type Sizes =
 	| 8
 	| 16
@@ -43,6 +45,40 @@ export type Sizes =
 	| 240
 	| 248
 	| 256
+
+export type BytesSizes =
+	| 1
+	| 2
+	| 3
+	| 4
+	| 5
+	| 6
+	| 7
+	| 8
+	| 9
+	| 10
+	| 11
+	| 12
+	| 13
+	| 14
+	| 15
+	| 16
+	| 17
+	| 18
+	| 19
+	| 20
+	| 21
+	| 22
+	| 23
+	| 24
+	| 25
+	| 26
+	| 27
+	| 28
+	| 29
+	| 30
+	| 31
+	| 32
 
 export const OrderType = {
 	// conditional execution:
@@ -87,6 +123,10 @@ export type int = {
 	[T in Sizes]: bigint & { _type: `int${T}` }
 }
 
+export type bytes = {
+	[T in BytesSizes]: HexString & { _type: `bytes${T}` }
+}
+
 export type ZodUint<T extends keyof uint> = ZodEffects<
 	ZodEffects<ZodString, bigint, string>,
 	uint[T],
@@ -95,6 +135,12 @@ export type ZodUint<T extends keyof uint> = ZodEffects<
 export type ZodInt<T extends keyof int> = ZodEffects<
 	ZodEffects<ZodString, bigint, string>,
 	int[T],
+	string
+>
+
+export type ZodBytes<T extends keyof bytes> = ZodEffects<
+	ZodEffects<ZodString, HexString, string>,
+	bytes[T],
 	string
 >
 
