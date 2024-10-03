@@ -22,6 +22,6 @@ export const userRouter = new OpenAPIHono().openapi(route, async (c) => {
 	const { user } = query.parse(c.req.query())
 
 	const nonce = nonceOfUser(user)
-	const data = userNonceSchema.parse(nonce)
+	const data = userNonceSchema.parse({ ...nonce, user })
 	return c.json(data, 200)
 })

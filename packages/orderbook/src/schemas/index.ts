@@ -7,90 +7,76 @@ export * as http from './http'
 export const solidity = _solidity
 
 export const orderId = z.string()
-export const marketId = solidity.uint128()
+export const marketId = solidity.uint128('The unique market identifier')
 
 export const metadataSchema = z.object({
-	// timestamp when the order was created
-	genesis: solidity.uint256(),
-	// timestamp when the order will expire
-	expiration: solidity.uint256(),
-	// tracking code for the order
-	trackingCode: solidity.bytes32(),
-	// address of the referrer
-	referrer: solidity.address(),
+	genesis: solidity.uint256('The timestamp when the order was created'),
+	expiration: solidity.uint256('The timestamp when the order will expire'),
+	trackingCode: solidity.bytes32('The tracking code for the order'),
+	referrer: solidity.address('The address of the referrer'),
 })
 
 export const traderSchema = z.object({
-	// unique order identifier for a given account
-	nonce: solidity.uint256(),
-	// unique account identifier
-	accountId: solidity.uint128(),
-	// address of the trade signer which:
-	//  - must be the account owner
-	//  - must satisfy account-specified permissions
-	signer: solidity.address(),
+	nonce: solidity.uint256('The unique order identifier for a given account'),
+	accountId: solidity.uint128('The unique account identifier'),
+	signer: solidity.address(
+		'The address of the trade signer, which must be the account owner or a delegate'
+	),
 })
 
 export const tradeSchema = z.object({
-	// type of order
-	t: z.nativeEnum(OrderType),
-	// unique market identifier
-	marketId: solidity.uint128(),
-	// size of the trade:
-	//  - measured in the market's underlying asset
-	//  - sign indicates the direction of the trade
-	size: solidity.int128(),
-	// indicates the price of the trade:
-	//  - measured in the asset used to quote the market's underlying asset
-	//  - logic varies depending on the order type
-	price: solidity.uint256(),
+	t: z.nativeEnum(OrderType).describe('The type of order'),
+	marketId: solidity.uint128('The unique market identifier'),
+	size: solidity.int128(
+		"The size of the trade, measured in the market's underlying asset. A positive value indicates a buy, while a negative value indicates a sell"
+	),
+	price: solidity.uint256(
+		'The price of the trade, measured in the quote asset of the market. For limit orders, this is the limit price'
+	),
 })
 
 export const conditionSchema = z.object({
-	// address of the contract to staticcall
-	target: solidity.address(),
-	// identifier of the function to call
-	selector: solidity.FunctionSelector,
-	// data to pass to the function
-	data: solidity.hexString(),
-	// expected return value
-	expected: solidity.bytes32(),
+	target: solidity.address('The address of the contract to call'),
+	selector: solidity.FunctionSelector('The function selector to call'),
+	data: solidity.hexString(1000, false, 'The data to pass to the function'),
+	expected: solidity.bytes32('The expected return value'),
 })
 
 export const orderSchema = z.object({
-	metadata: metadataSchema,
-	trader: traderSchema,
-	trade: tradeSchema,
-	conditions: z.array(conditionSchema),
+	metadata: metadataSchema.describe('The metadata for the order'),
+	trader: traderSchema.describe('The trader who created the order'),
+	trade: tradeSchema.describe('The trade that the order represents'),
+	conditions: z.array(conditionSchema).describe('The conditions that must be met for the order'),
 })
 
 export const signedOrderSchema = z
 	.object({
 		id: z.string().describe('The unique identifier of the order'),
-		order: orderSchema,
-		user: solidity.address(),
-		signature: solidity.hexString(64),
+		order: orderSchema.describe('The order data'),
+		user: solidity.address('The address of the user who signed the order'),
+		signature: solidity.hexString(64, true, 'The signature of the order'),
 	})
 	.openapi('SignedOrder')
 
 export const unsignedOrderSchema = z
 	.object({
 		id: z.string().describe('The unique identifier of the order'),
-		order: orderSchema,
-		user: solidity.address(),
-		signature: solidity.Signature,
+		order: orderSchema.describe('The order data'),
+		user: solidity.address('The address of the user who signed the order'),
 	})
 	.openapi('UnsignedOrder')
 
 export const bookSchema = z.object({ marketId, orders: z.array(orderSchema) }).openapi('Book')
 
-export const marketSchema = z.object({ id: marketId, symbol: z.string() }).openapi('Market')
+export const marketSchema = z
+	.object({ id: marketId, symbol: z.string().describe('The symbol for the asset of the market') })
+	.openapi('Market')
 export const marketsSchema = z.array(marketSchema).openapi('Markets')
 export const userNonceSchema = z
 	.object({
-		nonce: solidity.uint256(),
-		lastSeen: z.date(),
-		user: solidity.address(),
+		nonce: solidity.uint256('The unique order identifier for a given account'),
+		lastSeen: z.date().describe('The timestamp when the nonce was last seen'),
+		user: solidity.uint128('The accountId of the user'),
 	})
 	.openapi('UserNonceData')
 
