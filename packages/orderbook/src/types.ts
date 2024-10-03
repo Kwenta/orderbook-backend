@@ -1,4 +1,4 @@
-import type { ZodEffects, ZodString, z } from 'zod'
+import type { ZodBigInt, ZodEffects, ZodNumber, ZodString, ZodUnion, z } from 'zod'
 import type {
 	conditionSchema,
 	metadataSchema,
@@ -128,12 +128,12 @@ export type bytes = {
 }
 
 export type ZodUint<T extends keyof uint> = ZodEffects<
-	ZodEffects<ZodString, bigint, string>,
+	ZodEffects<ZodUnion<[ZodString, ZodNumber, ZodBigInt]>, bigint, number | string | bigint>,
 	uint[T],
 	string
 >
 export type ZodInt<T extends keyof int> = ZodEffects<
-	ZodEffects<ZodString, bigint, string>,
+	ZodEffects<ZodUnion<[ZodString, ZodNumber, ZodBigInt]>, bigint, number | string | bigint>,
 	int[T],
 	string
 >
