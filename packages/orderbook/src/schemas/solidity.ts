@@ -74,4 +74,4 @@ export const int128 = (description?: string) => intSchema(128, description) as Z
 export const int256 = (description?: string) => intSchema(256, description) as ZodInt<256>
 
 export const FunctionSelector = (description?: string) => bytes4(description)
-export const Signature = (description?: string) => bytes32(description)
+export const Signature = (description?: string) => hexString(1000, false, description)
