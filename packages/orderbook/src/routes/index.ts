@@ -4,6 +4,7 @@ import { bookRouter } from './book'
 import { demoRouter } from './demo'
 import { marketRouter } from './markets'
 import { orderRouter } from './orders'
+import { userRouter } from './user'
 
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
@@ -25,6 +26,7 @@ const routes = app
 	.route('/markets', marketRouter)
 	.route('/orders', orderRouter)
 	.route('/demo', demoRouter)
+	.route('/user', userRouter)
 
 export type AppRouter = typeof routes
 

@@ -87,6 +87,13 @@ export const bookSchema = z.object({ marketId, orders: z.array(orderSchema) }).o
 
 export const marketSchema = z.object({ id: marketId, symbol: z.string() }).openapi('Market')
 export const marketsSchema = z.array(marketSchema).openapi('Markets')
+export const userNonceSchema = z
+	.object({
+		nonce: solidity.uint256(),
+		lastSeen: z.date(),
+		user: solidity.address(),
+	})
+	.openapi('UserNonceData')
 
 export const paginationSchema = z.object({
 	offset: z
