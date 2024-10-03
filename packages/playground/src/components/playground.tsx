@@ -10,12 +10,13 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { OrderbookSDK } from 'orderbook-sdk'
+import { OrderType, OrderbookSDK } from 'orderbook-sdk'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FC, useEffect, useState } from 'react'
 import { base } from 'viem/chains'
-import { useAccount, useClient, useSignMessage, useSignTypedData, useWalletClient } from 'wagmi'
+import { useAccount, useClient, useSignMessage, useSignTypedData } from 'wagmi'
 
 const SDK_METHODS = [
 	'getMarkets',
@@ -31,15 +32,16 @@ type SDKMethod = (typeof SDK_METHODS)[number]
 
 const Playground: FC = () => {
 	const { address } = useAccount()
-
 	const client = useClient()
 	const { signMessageAsync } = useSignMessage()
 	const { signTypedDataAsync } = useSignTypedData()
+	const queryClient = useQueryClient()
 
 	const [sdk, setSdk] = useState<OrderbookSDK | null>(null)
 	const [apiUrl, setApiUrl] = useState('http://localhost:3000')
 	const [selectedMethod, setSelectedMethod] = useState<SDKMethod>('getMarkets')
 	const [methodParams, setMethodParams] = useState<Record<string, string>>({})
+	const [selectedMarketId, setSelectedMarketId] = useState<string>('')
 	const [result, setResult] = useState('')
 
 	useEffect(() => {
@@ -54,10 +56,31 @@ const Playground: FC = () => {
 		}
 	}, [address, client?.chain, apiUrl, signMessageAsync, signTypedDataAsync])
 
+	const { data: markets } = useQuery({
+		queryKey: ['markets'],
+		queryFn: () => sdk?.getMarkets() ?? [],
+		enabled: !!sdk,
+	})
+
+	const { data: orders, isLoading: isLoadingOrders } = useQuery({
+		queryKey: ['orders', selectedMarketId],
+		queryFn: () => sdk?.getOrders(BigInt(selectedMarketId)) ?? [],
+		enabled: !!sdk && !!selectedMarketId,
+		refetchInterval: 3000,
+	})
+
 	const handleMethodChange = (method: SDKMethod) => {
 		setSelectedMethod(method)
 		setMethodParams({})
 		setResult('')
+		if (method === 'createOrder') {
+			setMethodParams({
+				marketId: '',
+				orderType: '',
+				size: '',
+				price: '',
+			})
+		}
 	}
 
 	const handleParamChange = (param: string, value: string) => {
@@ -70,13 +93,16 @@ const Playground: FC = () => {
 			let response: any
 			switch (selectedMethod) {
 				case 'getMarkets':
-					response = await sdk.getMarkets()
+					response = await queryClient.fetchQuery({
+						queryKey: ['markets'],
+						queryFn: () => sdk.getMarkets(),
+					})
 					break
 				case 'getMarket':
 					response = await sdk.getMarket(BigInt(methodParams.id || '0'))
 					break
 				case 'getOrders':
-					response = await sdk.getOrders(BigInt(methodParams.marketId || '0'))
+					response = orders
 					break
 				case 'getOrder':
 					if (!methodParams.marketId || !methodParams.orderId) {
@@ -84,31 +110,24 @@ const Playground: FC = () => {
 					}
 					response = await sdk.getOrder(BigInt(methodParams.marketId), methodParams.orderId)
 					break
-				// case 'createOrder':
-				// 	if (!methodParams.marketId || !methodParams.order) {
-				// 		throw new Error('Market ID and order data are required')
-				// 	}
-				// 	response = await sdk.createOrder(
-				// 		BigInt(methodParams.marketId),
-				// 		JSON.parse(methodParams.order)
-				// 	)
-				// 	break
-				// case 'updateOrder':
-				// 	if (!methodParams.marketId || !methodParams.orderId || !methodParams.order) {
-				// 		throw new Error('Market ID, Order ID, and order data are required')
-				// 	}
-				// 	response = await sdk.updateOrder(
-				// 		BigInt(methodParams.marketId),
-				// 		methodParams.orderId,
-				// 		JSON.parse(methodParams.order)
-				// 	)
-				// 	break
-				// case 'deleteOrder':
-				// 	if (!methodParams.marketId || !methodParams.orderId) {
-				// 		throw new Error('Market ID and Order ID are required')
-				// 	}
-				// 	response = await sdk.deleteOrder(BigInt(methodParams.marketId), methodParams.orderId)
-				// 	break
+				case 'createOrder':
+					if (
+						!methodParams.marketId ||
+						!methodParams.orderType ||
+						!methodParams.size ||
+						!methodParams.price
+					) {
+						throw new Error('All fields are required')
+					}
+					response = await sdk.createOrder(
+						BigInt(methodParams.marketId),
+						methodParams.orderType as unknown as (typeof OrderType)[keyof typeof OrderType],
+						BigInt(methodParams.size),
+						methodParams.type as 'BUY' | 'SELL',
+						BigInt(methodParams.price)
+					)
+					queryClient.invalidateQueries({ queryKey: ['orders', methodParams.marketId] })
+					break
 				default:
 					throw new Error('Invalid method')
 			}
@@ -138,10 +157,10 @@ const Playground: FC = () => {
 					</div>
 
 					<div>
-						<Label htmlFor="method-select">Method</Label>
+						<Label htmlFor="method-select">Метод</Label>
 						<Select onValueChange={handleMethodChange} value={selectedMethod}>
 							<SelectTrigger id="method-select">
-								<SelectValue placeholder="Select a method" />
+								<SelectValue placeholder="Выберите метод" />
 							</SelectTrigger>
 							<SelectContent>
 								{SDK_METHODS.map((method) => (
@@ -155,25 +174,46 @@ const Playground: FC = () => {
 
 					{selectedMethod === 'getMarket' && (
 						<div>
-							<Label htmlFor="market-id">Market ID</Label>
-							<Input
-								id="market-id"
-								placeholder="Market ID"
-								value={methodParams.id || ''}
-								onChange={(e) => handleParamChange('id', e.target.value)}
-							/>
+							<Label htmlFor="market-id">ID рынка</Label>
+							<Select
+								onValueChange={(value) => handleParamChange('id', value)}
+								value={methodParams.id}
+							>
+								<SelectTrigger id="market-id">
+									<SelectValue placeholder="Выберите рынок" />
+								</SelectTrigger>
+								<SelectContent>
+									{markets?.map((market) => (
+										<SelectItem key={market.id.toString()} value={market.id.toString()}>
+											{market.symbol}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 					)}
 
 					{(selectedMethod === 'getOrders' || selectedMethod === 'createOrder') && (
 						<div>
-							<Label htmlFor="orders-market-id">Market ID</Label>
-							<Input
-								id="orders-market-id"
-								placeholder="Market ID"
-								value={methodParams.marketId || ''}
-								onChange={(e) => handleParamChange('marketId', e.target.value)}
-							/>
+							<Label htmlFor="orders-market-id">ID рынка</Label>
+							<Select
+								onValueChange={(value) => {
+									handleParamChange('marketId', value)
+									setSelectedMarketId(value)
+								}}
+								value={methodParams.marketId}
+							>
+								<SelectTrigger id="orders-market-id">
+									<SelectValue placeholder="Выберите рынок" />
+								</SelectTrigger>
+								<SelectContent>
+									{markets?.map((market) => (
+										<SelectItem key={market.id.toString()} value={market.id.toString()}>
+											{market.symbol}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 					)}
 
@@ -202,16 +242,45 @@ const Playground: FC = () => {
 						</>
 					)}
 
-					{(selectedMethod === 'createOrder' || selectedMethod === 'updateOrder') && (
-						<div>
-							<Label htmlFor="order-data">Order Data (JSON)</Label>
-							<Textarea
-								id="order-data"
-								placeholder="{ ... }"
-								value={methodParams.order || ''}
-								onChange={(e) => handleParamChange('order', e.target.value)}
-							/>
-						</div>
+					{selectedMethod === 'createOrder' && (
+						<>
+							<div>
+								<Label htmlFor="create-order-type">Order Type</Label>
+								<Select
+									onValueChange={(value) => handleParamChange('orderType', value)}
+									value={methodParams.orderType}
+								>
+									<SelectTrigger id="create-order-type">
+										<SelectValue placeholder="Select order type" />
+									</SelectTrigger>
+									<SelectContent>
+										{Object.entries(OrderType).map(([key, value]) => (
+											<SelectItem key={key} value={value.toString()}>
+												{key}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div>
+								<Label htmlFor="create-order-size">Size</Label>
+								<Input
+									id="create-order-size"
+									placeholder="Size"
+									value={methodParams.size || ''}
+									onChange={(e) => handleParamChange('size', e.target.value)}
+								/>
+							</div>
+							<div>
+								<Label htmlFor="create-order-price">Price</Label>
+								<Input
+									id="create-order-price"
+									placeholder="Price"
+									value={methodParams.price || ''}
+									onChange={(e) => handleParamChange('price', e.target.value)}
+								/>
+							</div>
+						</>
 					)}
 
 					<Button onClick={executeMethod} className="w-full" disabled={!sdk || !address}>
@@ -220,7 +289,12 @@ const Playground: FC = () => {
 
 					<div>
 						<Label htmlFor="result">Result</Label>
-						<Textarea id="result" value={result} readOnly className="font-mono h-64" />
+						<Textarea
+							id="result"
+							value={isLoadingOrders ? 'Loading...' : result}
+							readOnly
+							className="font-mono h-64"
+						/>
 					</div>
 				</div>
 			</CardContent>
