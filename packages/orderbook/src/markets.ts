@@ -1,7 +1,7 @@
 import { config } from 'dotenv'
+import { solidity } from 'schemas'
 import { http, createPublicClient } from 'viem'
 import { base } from 'viem/chains'
-import { uint128 } from './schemas'
 import type { Market } from './types'
 
 config()
@@ -56,6 +56,6 @@ export const loadMarkets = async (): Promise<Market[]> => {
 	const symbols = await getSymbols(perpsV3Markets)
 
 	return perpsV3Markets
-		.map((id, i) => ({ id: uint128().parse(id), symbol: symbols[i] ?? '' }))
+		.map((id, i) => ({ id: solidity.uint128().parse(id), symbol: symbols[i] ?? '' }))
 		.sort((a, b) => Number(a.id - b.id))
 }

@@ -1,6 +1,5 @@
 import { z } from '@hono/zod-openapi'
 import { OrderType } from '../types'
-import { uint128 } from './solidity'
 import * as _solidity from './solidity'
 
 export * as http from './http'
