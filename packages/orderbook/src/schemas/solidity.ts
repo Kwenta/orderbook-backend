@@ -37,7 +37,7 @@ const uintSchema = (n: Sizes = 256, description?: string): ZodUint<keyof uint> =
 	if (n < 0 || n > 256) throw new Error('Invalid uint size')
 	const maxValue = viem[`maxUint${n}`]
 	const schema = z
-		.string()
+		.union([z.string(), z.number(), z.bigint()])
 		.transform(BigInt)
 		.refine(
 			(x) => x >= BigInt(0) && x < maxValue,
@@ -52,7 +52,7 @@ const intSchema = (n: Sizes = 256, description?: string): ZodInt<keyof int> => {
 	const maxValue = viem[`maxInt${n}`]
 	const minValue = viem[`minInt${n}`]
 	const schema = z
-		.string()
+		.union([z.string(), z.number(), z.bigint()])
 		.transform(BigInt)
 		.refine(
 			(x) => x > minValue && x < maxValue,
