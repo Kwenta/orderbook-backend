@@ -25,7 +25,12 @@ export const traderSchema = z.object({
 })
 
 export const tradeSchema = z.object({
-	t: z.nativeEnum(OrderType).describe('The type of order'),
+	t: z
+		.union([
+			z.nativeEnum(OrderType),
+			z.enum(Object.values(OrderType).map((x) => x.toString()) as [string, ...string[]]),
+		])
+		.describe('The type of order'),
 	marketId: solidity.uint128('The unique market identifier'),
 	size: solidity.int128(
 		"The size of the trade, measured in the market's underlying asset. A positive value indicates a buy, while a negative value indicates a sell"
@@ -54,7 +59,7 @@ export const signedOrderSchema = z
 		id: z.string().describe('The unique identifier of the order'),
 		order: orderSchema.describe('The order data'),
 		user: solidity.address('The address of the user who signed the order'),
-		signature: solidity.hexString(64, true, 'The signature of the order'),
+		signature: solidity.Signature('The signature of the order'),
 	})
 	.openapi('SignedOrder')
 
