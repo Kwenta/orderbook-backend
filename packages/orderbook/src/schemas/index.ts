@@ -25,7 +25,12 @@ export const traderSchema = z.object({
 })
 
 export const tradeSchema = z.object({
-	t: z.nativeEnum(OrderType).describe('The type of order'),
+	t: z
+		.union([
+			z.nativeEnum(OrderType),
+			z.enum(Object.values(OrderType).map((x) => x.toString()) as [string, ...string[]]),
+		])
+		.describe('The type of order'),
 	marketId: solidity.uint128('The unique market identifier'),
 	size: solidity.int128(
 		"The size of the trade, measured in the market's underlying asset. A positive value indicates a buy, while a negative value indicates a sell"
