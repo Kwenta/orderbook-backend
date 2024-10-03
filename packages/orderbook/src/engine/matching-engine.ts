@@ -83,7 +83,7 @@ export class MatchingEngine {
 			throw new Error('Order has expired')
 		}
 
-		if (orderData.order.trader.nonce !== nonceOfUser(orderData.user).nonce) {
+		if (orderData.order.trader.nonce !== nonceOfUser(orderData.order.trader.accountId).nonce) {
 			throw new Error('Invalid nonce')
 		}
 
@@ -108,7 +108,7 @@ export class MatchingEngine {
 		orderMap.get(price)?.set(id, orderWithId)
 		this.orderIdToPrice.set(id, price)
 
-		incrementNonce(orderData.user)
+		incrementNonce(orderData.order.trader.accountId)
 
 		await this.checkForPossibleSettles()
 		return id

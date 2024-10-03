@@ -1,10 +1,9 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
 import { nonceOfUser } from 'engine/nonce'
-import { loadMarkets } from '../markets'
-import { http, marketId, solidity, userNonceSchema } from '../schemas'
+import { http, solidity, userNonceSchema } from '../schemas'
 import { standardResponses } from '../utils'
 
-const query = z.object({ user: solidity.address() })
+const query = z.object({ user: solidity.uint128() })
 
 const route = createRoute({
 	method: 'get',

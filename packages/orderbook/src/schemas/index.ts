@@ -33,7 +33,7 @@ export const traderSchema = z.object({
 
 export const tradeSchema = z.object({
 	// type of order
-	t: z.enum(Object.values(OrderType).map((x) => x.toString()) as [string, ...string[]]),
+	t: z.nativeEnum(OrderType),
 	// unique market identifier
 	marketId: solidity.uint128(),
 	// size of the trade:
