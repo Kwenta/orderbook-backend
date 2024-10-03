@@ -8,23 +8,9 @@ import { orderRouter } from './orders'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
-import type { ZodError } from 'zod'
+import { ZodError } from 'zod'
 
-const formatZodErrors = (result: ZodError<any>) => {
-	const errors: { [key: string]: string } = {}
-	for (const [key, value] of Object.entries(result.errors)) {
-		errors[key] = value.message
-	}
-	return errors
-}
-
-export const app = new OpenAPIHono({
-	defaultHook: (result, c) => {
-		if (!result.success) {
-			return c.json({ errors: formatZodErrors(result.error), message: 'Validation Failure' }, 400)
-		}
-	},
-})
+export const app = new OpenAPIHono({})
 
 app.use(logger())
 app.use(
@@ -46,12 +32,24 @@ app.doc('/doc', {
 	openapi: '3.0.0',
 	info: { version: '0.0.1', title: 'Kwenta Matching Engine API' },
 })
+
 app.get('/ui', swaggerUI({ url: '/doc' }))
 
+const formatZodErrors = (result: ZodError<any>) => {
+	const errors: { [key: string]: string } = {}
+	for (const { path, message } of result.errors) {
+		errors[path.join('.')] = message
+	}
+	return errors
+}
+
 app.onError((err, c) => {
+	if (err instanceof ZodError) {
+		return c.json({ errors: formatZodErrors(err), message: 'Validation Failure' }, 400)
+	}
 	if (err instanceof HTTPException) {
 		return c.json({ message: err.message }, err.status)
 	}
-	// console.error(e)
+	console.error(err)
 	return c.json({ message: 'An error occurred' }, 500)
 })

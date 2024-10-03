@@ -54,5 +54,8 @@ export const loadMarkets = async (): Promise<Market[]> => {
 	})
 	const perpsV3Markets = markets.filter((m) => m !== BigInt(6300)).map((m) => m.toString())
 	const symbols = await getSymbols(perpsV3Markets)
-	return perpsV3Markets.map((id, i) => ({ id: uint128().parse(id), symbol: symbols[i] ?? '' }))
+
+	return perpsV3Markets
+		.map((id, i) => ({ id: uint128().parse(id), symbol: symbols[i] ?? '' }))
+		.sort((a, b) => Number(a.id - b.id))
 }
