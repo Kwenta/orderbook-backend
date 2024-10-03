@@ -59,7 +59,7 @@ export const signedOrderSchema = z
 		id: z.string().describe('The unique identifier of the order'),
 		order: orderSchema.describe('The order data'),
 		user: solidity.address('The address of the user who signed the order'),
-		signature: solidity.hexString(64, true, 'The signature of the order'),
+		signature: solidity.Signature('The signature of the order'),
 	})
 	.openapi('SignedOrder')
 
