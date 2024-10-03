@@ -16,7 +16,7 @@ type LimitOrderRaw = { signature: HexString; user: HexString; order: Order }
 const side = (order: Order) => (order.trade.size < BigInt(0) ? 'sell' : 'buy')
 
 const checkOrderSignature = async (order: LimitOrder) => {
-	return checkSignatureOfOrder(order.order, zeroAddress, BigInt(1), order.user, order.signature)
+	return checkSignatureOfOrder(order.order, zeroAddress, BigInt(8453), order.user, order.signature)
 }
 
 const checkDeleteSignature = async (lo: LimitOrder) => {
