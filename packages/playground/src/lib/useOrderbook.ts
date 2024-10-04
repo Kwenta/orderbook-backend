@@ -78,7 +78,6 @@ export const useOrderbook = () => {
 				BigInt(orderData.marketId),
 				OrderType[orderData.type as keyof typeof OrderType],
 				BigInt(orderData.size),
-				orderData.side,
 				BigInt(orderData.price)
 			)
 			console.log('Order created:', response)
@@ -111,14 +110,11 @@ export const useOrderbook = () => {
 	) => {
 		if (!sdk) return
 		try {
-			const response = await sdk.editOrder(
-				BigInt(marketId),
-				orderId,
-				OrderType[editedOrder.orderType as keyof typeof OrderType],
-				BigInt(editedOrder.size),
-				editedOrder.side,
-				BigInt(editedOrder.price)
-			)
+			const response = await sdk.editOrder(BigInt(marketId), orderId, {
+				orderType: OrderType[editedOrder.orderType as keyof typeof OrderType],
+				size: BigInt(editedOrder.size) * (editedOrder.side === 'BUY' ? 1n : -1n),
+				price: BigInt(editedOrder.price),
+			})
 			console.log('Order edited:', response)
 			invalidateQueries()
 		} catch (error) {
