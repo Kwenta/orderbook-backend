@@ -116,15 +116,15 @@ export const OrderType = {
 } as const
 
 export type uint = {
-	[T in Sizes]: bigint & { _type: `uint${T}` }
+	[T in Sizes]: bigint & { _type?: `uint${T}` }
 }
 
 export type int = {
-	[T in Sizes]: bigint & { _type: `int${T}` }
+	[T in Sizes]: bigint & { _type?: `int${T}` }
 }
 
 export type bytes = {
-	[T in BytesSizes]: HexString & { _type: `bytes${T}` }
+	[T in BytesSizes]: HexString & { _type?: `bytes${T}` }
 }
 
 export type ZodUint<T extends keyof uint> = ZodEffects<
