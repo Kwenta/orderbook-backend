@@ -1,7 +1,7 @@
 import KwentaSDK from '@kwenta/sdk'
 import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
 import type { AppRouter } from '@orderbook/routes'
-import type { Market } from '@orderbook/types'
+import type { Market, OrderType } from '@orderbook/types'
 import { hc } from 'hono/client'
 import {
 	http,
@@ -16,101 +16,9 @@ import {
 	zeroAddress,
 } from 'viem'
 import { base } from 'viem/chains'
-
-// TODO: Remove from here
-export const OrderType = {
-	// conditional execution:
-	//  - buy   @ QUOTE != 0
-	//  - sell  @ QUOTE != 0
-	//
-	// side effects:
-	//  - LOB depth consumed if available; order "killed" otherwise
-	MARKET: 1,
-	// conditional execution:
-	//  - buy   @ QUOTE <= LIMIT price
-	//  - sell  @ QUOTE >= LIMIT price
-	//
-	// side effects:
-	//  - LOB depth increases when condition not satisfied
-	//  - LOB depth decreases when condition satisfied
-	LIMIT: 2,
-	// conditional execution:
-	//  - buy   @ QUOTE >= STOP price
-	//  - sell  @ QUOTE <= STOP price
-	//
-	// side effects:
-	// - LOB depth unchanged until condition satisfied
-	// - LOB depth decreases when condition satisfied
-	STOP: 3,
-	// conditional execution:
-	//  - buy   @ QUOTE >= STOP price && QUOTE <= LIMIT price
-	//  - sell  @ QUOTE <= STOP price && QUOTE >= LIMIT price
-	//
-	// side effects:
-	// - LOB depth unchanged when STOP condition is not satisfied
-	// - LOB depth increases when STOP condition satisfied but not LIMIT
-	// - LOB depth decreases when both conditions satisfied
-	STOP_LIMIT: 4,
-} as const
-
-export const orderTypes = {
-	Order: [
-		{ name: 'metadata', type: 'Metadata' },
-		{ name: 'trader', type: 'Trader' },
-		{ name: 'trade', type: 'Trade' },
-		{ name: 'conditions', type: 'Condition[]' },
-	],
-	Metadata: [
-		{ name: 'genesis', type: 'uint256' },
-		{ name: 'expiration', type: 'uint256' },
-		{ name: 'trackingCode', type: 'bytes32' },
-		{ name: 'referrer', type: 'address' },
-	],
-	Trader: [
-		{ name: 'nonce', type: 'uint256' },
-		{ name: 'accountId', type: 'uint128' },
-		{ name: 'signer', type: 'address' },
-	],
-	Trade: [
-		{ name: 't', type: 'uint8' },
-		{ name: 'marketId', type: 'uint128' },
-		{ name: 'size', type: 'int128' },
-		{ name: 'price', type: 'uint256' },
-	],
-	Condition: [
-		{ name: 'target', type: 'address' },
-		{ name: 'selector', type: 'bytes4' },
-		{ name: 'data', type: 'bytes' },
-		{ name: 'expected', type: 'bytes32' },
-	],
-} as const
-
-export const domain = (chainId: bigint | number, contractAddress: Hex) =>
-	({
-		chainId: Number(chainId),
-		verifyingContract: contractAddress,
-		name: 'SyntheticPerpetualFutures',
-		version: '1',
-	}) as const
-
-type GenericSignMessageParameters = {
-	message: SignableMessage
-	account?: Address
-}
-
-type GenericSignTypedDataParameters = {
-	domain: Record<string, any>
-	types: Record<string, ReadonlyArray<{ readonly name: string; readonly type: string }>>
-	primaryType: string
-	message: Record<string, any>
-	account?: Address
-}
-
-type SDKAccount = {
-	address: Address
-	signMessage: (args: GenericSignMessageParameters) => Promise<`0x${string}`>
-	signTypedData: (args: GenericSignTypedDataParameters) => Promise<`0x${string}`>
-}
+import { orderTypes } from './constants'
+import type { SDKAccount } from './types'
+import { domain } from './utils'
 
 export class OrderbookSDK {
 	private readonly client: ReturnType<typeof hc<AppRouter>>
