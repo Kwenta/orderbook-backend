@@ -64,7 +64,7 @@ export class Nonce {
 		public lastSeen: Date = new Date()
 	) {
 		Nonce.nonces.set(user, this)
-		addPerfToInstance('Nonce', this)
+		addPerfToInstance('Nonce', this as any)
 	}
 
 	increment() {

@@ -17,7 +17,7 @@ const addRoute = createRoute({
 		params: z.object({ marketId }),
 		body: {
 			content: {
-				'application/json': { schema: signedOrderSchema.omit({ id: true }) },
+				'application/json': { schema: signedOrderSchema.omit({ id: true, user: true }) },
 			},
 		},
 	},
@@ -108,12 +108,12 @@ const updateRoute = createRoute({
 export const orderRouter = new OpenAPIHono()
 	.openapi(addRoute, async (c) => {
 		const { marketId } = addRoute.request.params.parse(c.req.param())
-		const { order, signature, user } = addRoute.request.body.content[
-			'application/json'
-		].schema.parse(await c.req.json())
+		const { order, signature } = addRoute.request.body.content['application/json'].schema.parse(
+			await c.req.json()
+		)
 
 		const engine = MatchingEngine.findOrFail(marketId)
-		const orderId = await engine.addOrder({ order, user, signature })
+		const orderId = await engine.addOrder({ order, signature })
 
 		return c.json({ success: true as const, orderId }, 201)
 	})

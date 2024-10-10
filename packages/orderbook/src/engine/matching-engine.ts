@@ -59,7 +59,7 @@ export class MatchingEngine {
 			this.removeUserOrders(user)
 		})
 
-		addPerfToInstance('MatchingEngine', this)
+		addPerfToInstance('MatchingEngine', this as any)
 	}
 
 	async initBookFromDB() {
