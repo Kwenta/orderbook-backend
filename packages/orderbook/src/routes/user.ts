@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { nonceOfUser } from 'engine/nonce'
+import { Nonce } from '../engine/nonce'
 import { http, solidity, userNonceSchema } from '../schemas'
 import { standardResponses } from '../utils'
 
@@ -21,7 +21,7 @@ const route = createRoute({
 export const userRouter = new OpenAPIHono().openapi(route, async (c) => {
 	const { user } = query.parse(c.req.query())
 
-	const nonce = nonceOfUser(user)
-	const data = userNonceSchema.parse({ ...nonce, user })
+	const nonce = Nonce.get(user)
+	const data = userNonceSchema.parse({ user, nonce: nonce.nonce, lastSeen: nonce.lastSeen })
 	return c.json(data, 200)
 })

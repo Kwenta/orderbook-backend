@@ -1,7 +1,8 @@
 import { checksumAddress, hashTypedData, recoverTypedDataAddress } from 'viem'
-import type { Order as FullOrder, HexString } from './types'
+import { chainId, verifyingContract } from './env'
+import type { Order as FullOrder, HexString, LimitOrder, int } from './types'
 
-export const orderTypes = {
+const types = {
 	Order: [
 		{ name: 'metadata', type: 'Metadata' },
 		{ name: 'trader', type: 'Trader' },
@@ -31,47 +32,33 @@ export const orderTypes = {
 		{ name: 'data', type: 'bytes' },
 		{ name: 'expected', type: 'bytes32' },
 	],
-}
+} as const
 
-export const domain = (chainId: bigint, contractAddress: HexString) => ({
-	chainId: Number(chainId),
-	verifyingContract: contractAddress,
+const domain = {
+	chainId,
+	verifyingContract,
 	name: 'SyntheticPerpetualFutures',
 	version: '1',
-})
+} as const
 
-export const hashOfOrder = (order: FullOrder, contractAddress: HexString, chainId: bigint) => {
-	return hashTypedData({
-		domain: domain(chainId, contractAddress),
-		types: orderTypes,
-		primaryType: 'Order',
-		message: {
-			metadata: order.metadata,
-			trader: order.trader,
-			trade: order.trade,
-			conditions: order.conditions,
-		},
-	})
+const typedData = (order: FullOrder) =>
+	({ domain, types, primaryType: 'Order', message: order }) as const
+
+export const hashOfOrder = (order: FullOrder) => {
+	return hashTypedData(typedData(order))
 }
 
-export const checkSignatureOfOrder = async (
-	order: FullOrder,
-	contractAddress: HexString,
-	chainId: bigint,
-	user: HexString,
-	signature: HexString
-) => {
-	const signer = await recoverTypedDataAddress({
-		domain: domain(chainId, contractAddress),
-		types: orderTypes,
-		primaryType: 'Order',
-		message: {
-			metadata: order.metadata,
-			trader: order.trader,
-			trade: order.trade,
-			conditions: order.conditions,
-		},
-		signature,
-	})
+const checkSignatureOfOrder = async (order: FullOrder, user: HexString, signature: HexString) => {
+	const signer = await recoverTypedDataAddress({ ...typedData(order), signature })
 	return checksumAddress(signer) === checksumAddress(user)
+}
+
+export const checkOrderSignature = async (order: LimitOrder) => {
+	return checkSignatureOfOrder(order.order, order.order.trader.signer, order.signature)
+}
+
+export const checkDeleteSignature = async (lo: LimitOrder) => {
+	const newOrder = structuredClone(lo)
+	newOrder.order.trade.size = BigInt(0) as int[128]
+	return await checkOrderSignature(newOrder)
 }
