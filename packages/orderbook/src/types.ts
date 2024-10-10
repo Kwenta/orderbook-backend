@@ -10,6 +10,8 @@ import type {
 export type Market = { id: uint[128]; symbol: string }
 export type MarketId = Market['id']
 
+export type SupportedChains = 8453
+
 export type HexString = `0x${string}`
 
 export type Sizes =
@@ -152,3 +154,6 @@ export type Condition = z.infer<typeof conditionSchema>
 export type Order = z.infer<typeof orderSchema>
 
 export type AccountId = Trader['accountId']
+
+export type LimitOrderRaw = { signature: HexString; order: Order }
+export type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }
