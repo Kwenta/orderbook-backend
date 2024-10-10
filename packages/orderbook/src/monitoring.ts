@@ -4,37 +4,23 @@ const perfMetrics: {
 	[className: string]: { [methodName: string]: { count: bigint; total: bigint } }
 } = {}
 
-const scale = {
-	m: BigInt(6e10),
-	s: BigInt(1e9),
-	ms: BigInt(1e6),
-	μs: BigInt(1e3),
-	ns: BigInt(1),
-} as const
+const pad = (n: bigint, width: number) => n.toString().padStart(width, '0')
 
 export const formatTime = (time: bigint) => {
 	let num = time
-	let res = ''
 
-	const inc1 = num / scale.m
-	num -= inc1 * scale.m
-	const m = inc1.toString().padStart(2, '0')
-	res += `${m}m `
+	const m = num / BigInt(6e10)
+	num -= m * BigInt(6e10)
 
-	const inc2 = num / scale.s
-	num -= inc2 * scale.s
-	res += `${inc2.toString().padStart(2, '0')}s `
+	const s = num / BigInt(1e9)
+	num -= s * BigInt(1e9)
 
-	for (const uom in scale) {
-		if (uom === 'm') continue
-		if (uom === 's') continue
-		const step = scale[uom]
-		const inc = num / step
-		num -= inc * step
-		res += `${(step < scale.s ? inc.toString().padStart(3, '0') : inc) + uom} `
-	}
+	const ms = num / BigInt(1e6)
+	num -= ms * BigInt(1e6)
+	const μs = num / BigInt(1e3)
+	num -= μs * BigInt(1e3)
 
-	return res.trim()
+	return `${pad(m, 2)}m ${pad(s, 2)}s ${pad(ms, 3)}ms ${pad(μs, 3)}μs ${pad(num, 3)}ns`
 }
 
 const addToMetrics = (objName: string, name: string, time: bigint) => {
