@@ -46,7 +46,7 @@ const printMetrics = () => {
 	}
 }
 
-setInterval(printMetrics, 30000)
+setInterval(printMetrics, 1000)
 
 export const perfFunc =
 	(name: string, objName = '') =>
@@ -83,6 +83,7 @@ export const perfFuncAsync =
 
 type Fn = (...args: any[]) => any
 type AsyncFn = (...args: any[]) => Promise<any>
+type Constructor = new (...args: any[]) => any
 
 const isFn = (fn: any): fn is Fn => {
 	return typeof fn === 'function'
@@ -92,10 +93,7 @@ const isAsyncFn = (fn: any): fn is AsyncFn => {
 	return isFn(fn) && fn.constructor.name === 'AsyncFunction'
 }
 
-export const addPerfToInstance = <T extends Record<string, Fn | AsyncFn>>(
-	name: string,
-	inst: T
-) => {
+export const addPerfToInstance = <T extends object>(name: string, inst: T) => {
 	for (const k of Object.getOwnPropertyNames(Object.getPrototypeOf(inst))) {
 		const key = k as keyof T & string
 
@@ -104,6 +102,19 @@ export const addPerfToInstance = <T extends Record<string, Fn | AsyncFn>>(
 			inst[key] = perfFuncAsync(key, name)(prop.bind(inst)) as any
 		} else if (isFn(prop)) {
 			inst[key] = perfFunc(key, name)(prop.bind(inst)) as any
+		}
+	}
+}
+
+export const addPerfToStatics = <T extends Constructor>(name: string, classObj: T) => {
+	for (const k of Object.getOwnPropertyNames(classObj)) {
+		const key = k as keyof T & string
+
+		const prop = classObj[key] as Fn | AsyncFn
+		if (isAsyncFn(prop)) {
+			classObj[key] = perfFuncAsync(key, `${name}:STATIC`)(prop) as any
+		} else if (isFn(prop)) {
+			classObj[key] = perfFunc(key, `${name}:STATIC`)(prop) as any
 		}
 	}
 }

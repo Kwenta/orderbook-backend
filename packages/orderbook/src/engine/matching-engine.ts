@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception'
 import { INTERVALS } from '../constants'
 import { ansiColorWrap, logger } from '../logger'
 import { loadMarkets } from '../markets'
-import { addPerfToInstance, formatTime } from '../monitoring'
+import { addPerfToInstance, addPerfToStatics, formatTime } from '../monitoring'
 import { checkDeleteSignature, checkOrderSignature } from '../signing'
 import {
 	type AccountId,
@@ -59,7 +59,7 @@ export class MatchingEngine {
 			this.removeUserOrders(user)
 		})
 
-		addPerfToInstance('MatchingEngine', this as any)
+		addPerfToInstance('MatchingEngine', this)
 	}
 
 	async initBookFromDB() {
@@ -309,18 +309,33 @@ export class MatchingEngine {
 		this.bookInSync = false
 	}
 
-	// TODO: Sort by timestamp
+	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {}
+
 	async checkForPossibleSettles() {
 		if (this.bookClean) return
 
-		const matchingOrders: LimitOrder[] = []
+		const matchingOrders: { buy: LimitOrder[]; sell: LimitOrder[] }[] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
 			const sellOrdersMap = this.sellOrders.get(price)
 
 			if (sellOrdersMap) {
-				matchingOrders.push(...buyOrdersMap.values())
-				matchingOrders.push(...sellOrdersMap.values())
+				const matches = { buy: [...buyOrdersMap.values()], sell: [...sellOrdersMap.values()] }
+				matchingOrders.push(matches)
+			}
+		}
+
+		for (const matches of matchingOrders) {
+			const { buy, sell } = matches
+			buy.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
+			sell.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
+
+			const totalToSettle = Math.min(buy.length, sell.length)
+
+			for (let i = 0; i < totalToSettle; i++) {
+				const buyOrder = buy[i]
+				const sellOrder = sell[i]
+				await this.settle(buyOrder!, sellOrder!)
 			}
 		}
 
@@ -408,5 +423,7 @@ export class MatchingEngine {
 		await MatchingEngine.addMissing()
 		await MatchingEngine.persistAll()
 		await MatchingEngine.checkAllForPossibleSettles()
+
+		addPerfToStatics('MatchingEngine', MatchingEngine)
 	}
 }

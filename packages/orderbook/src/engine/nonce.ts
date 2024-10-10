@@ -2,7 +2,7 @@ import type { Worker } from 'node:worker_threads'
 import { uint256 } from 'schemas/solidity'
 import { INTERVALS } from '../constants'
 import { logger } from '../logger'
-import { addPerfToInstance } from '../monitoring'
+import { addPerfToInstance, addPerfToStatics } from '../monitoring'
 import type { AccountId, uint } from '../types'
 
 type DBNonce = {
@@ -56,6 +56,7 @@ export class Nonce {
 		Nonce.worker = worker
 		await Nonce.initNoncesFromDB()
 		Nonce.persist()
+		addPerfToStatics('Nonce', Nonce)
 	}
 
 	constructor(
@@ -64,7 +65,7 @@ export class Nonce {
 		public lastSeen: Date = new Date()
 	) {
 		Nonce.nonces.set(user, this)
-		addPerfToInstance('Nonce', this as any)
+		addPerfToInstance('Nonce', this)
 	}
 
 	increment() {
