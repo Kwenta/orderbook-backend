@@ -27,8 +27,9 @@ const addToMetrics = (objName: string, name: string, time: bigint) => {
 	if (!perfMetrics[objName]) {
 		perfMetrics[objName] = {}
 	}
-	perfMetrics[objName][name] ??= { count: 0n, total: 0n }
-	const perf = perfMetrics[objName][name]
+	const obj = perfMetrics[objName]!
+	obj[name] ??= { count: 0n, total: 0n }
+	const perf = obj[name]!
 	perf.count++
 	perf.total += time
 }
