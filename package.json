@@ -11,7 +11,8 @@
 		"dev:backend": "pnpm --filter orderbook-backend run dev",
 		"dev:playground": "pnpm --filter orderbook-playground run dev",
 		"build:sdk": "pnpm --filter orderbook-sdk run build",
-		"clean": "pnpm run --filter \"orderbook*\" --parallel clean"
+		"clean": "pnpm run --filter \"orderbook*\" --parallel clean",
+		"test": "pnpm run --filter \"orderbook*\" --parallel test"
 	},
 	"keywords": [],
 	"author": "",

@@ -33,7 +33,7 @@ export const orderTypes = {
 	],
 }
 
-export const domain = (chainId: bigint, contractAddress: HexString) => ({
+export const domain = (chainId: bigint | number, contractAddress: HexString) => ({
 	chainId: Number(chainId),
 	verifyingContract: contractAddress,
 	name: 'SyntheticPerpetualFutures',
