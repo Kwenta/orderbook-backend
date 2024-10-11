@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi'
-import { findEngineOrFail } from '../engine/matching-engine'
+import { MatchingEngine } from '../engine/matching-engine'
 import {
 	http,
 	marketId,
@@ -17,7 +17,7 @@ const addRoute = createRoute({
 		params: z.object({ marketId }),
 		body: {
 			content: {
-				'application/json': { schema: signedOrderSchema.omit({ id: true }) },
+				'application/json': { schema: signedOrderSchema.omit({ id: true, user: true }) },
 			},
 		},
 	},
@@ -108,25 +108,25 @@ const updateRoute = createRoute({
 export const orderRouter = new OpenAPIHono()
 	.openapi(addRoute, async (c) => {
 		const { marketId } = addRoute.request.params.parse(c.req.param())
-		const { order, signature, user } = addRoute.request.body.content[
-			'application/json'
-		].schema.parse(await c.req.json())
+		const { order, signature } = addRoute.request.body.content['application/json'].schema.parse(
+			await c.req.json()
+		)
 
-		const engine = findEngineOrFail(marketId)
-		const orderId = await engine.addOrder({ order, user, signature })
+		const engine = MatchingEngine.findOrFail(marketId)
+		const orderId = await engine.addOrder({ order, signature })
 
 		return c.json({ success: true as const, orderId }, 201)
 	})
 	.openapi(getRoute, async (c) => {
 		const { marketId, orderId } = getRoute.request.params.parse(c.req.param())
-		const engine = findEngineOrFail(marketId)
+		const engine = MatchingEngine.findOrFail(marketId)
 		const order = engine.getOrderWithoutSig(orderId)!
 
 		return c.json(order, 200)
 	})
 	.openapi(getAllRoute, async (c) => {
 		const { marketId } = getAllRoute.request.params.parse(c.req.param())
-		const engine = findEngineOrFail(marketId)
+		const engine = MatchingEngine.findOrFail(marketId)
 		const data = structuredClone(engine.getOrdersWithoutSigs())
 
 		return c.json(data, 200)
@@ -137,7 +137,7 @@ export const orderRouter = new OpenAPIHono()
 			await c.req.json()
 		)
 
-		const engine = findEngineOrFail(marketId)
+		const engine = MatchingEngine.findOrFail(marketId)
 		await engine.updateOrder({ ...newOrder, id: orderId })
 
 		return c.json({ success: true }, 200)
@@ -148,7 +148,7 @@ export const orderRouter = new OpenAPIHono()
 			await c.req.json()
 		)
 
-		const engine = findEngineOrFail(marketId)
+		const engine = MatchingEngine.findOrFail(marketId)
 		await engine.deleteOrder(orderId, signature)
 
 		return c.json({ success: true }, 200)
