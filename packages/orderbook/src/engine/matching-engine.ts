@@ -211,7 +211,6 @@ export class MatchingEngine {
 
 		this.bookClean = false
 		this.bookInSync = false
-		MatchingEngine.allBooksInSync = false
 
 		return id
 	}
@@ -285,7 +284,6 @@ export class MatchingEngine {
 
 		this.bookClean = false
 		this.bookInSync = false
-		MatchingEngine.allBooksInSync = false
 	}
 
 	async pruneBook() {
