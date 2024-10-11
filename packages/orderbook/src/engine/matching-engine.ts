@@ -352,8 +352,6 @@ export class MatchingEngine {
 
 	private static worker?: Worker
 
-	private static allBooksInSync = false
-
 	static findOrFail(marketId?: MarketId) {
 		if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
 
@@ -364,26 +362,23 @@ export class MatchingEngine {
 	}
 
 	static async persistAll() {
-		if (!MatchingEngine.allBooksInSync) {
-			const start = process.hrtime.bigint()
-			const results = [...MatchingEngine.engines.entries()].map(([marketId, engine]) => ({
-				marketId,
-				changed: engine.persistBook(),
-			}))
+		const start = process.hrtime.bigint()
+		const results = [...MatchingEngine.engines.entries()].map(([marketId, engine]) => ({
+			marketId,
+			changed: engine.persistBook(),
+		}))
 
-			const changed = results.filter((r) => r.changed).map((r) => r.marketId)
-			const unchanged = results.filter((r) => !r.changed).map((r) => r.marketId)
+		const changed = results.filter((r) => r.changed).map((r) => r.marketId)
+		const unchanged = results.filter((r) => !r.changed).map((r) => r.marketId)
 
-			const end = process.hrtime.bigint()
+		const end = process.hrtime.bigint()
 
-			const time = end - start
+		const time = end - start
 
-			logger.info(
-				`Persisted ${ansiColorWrap(changed.length, 'green')}:${ansiColorWrap(unchanged.length, 'red')} market changes, took ${formatTime(time)}`
-			)
+		logger.info(
+			`Persisted ${ansiColorWrap(changed.length, 'green')}:${ansiColorWrap(unchanged.length, 'red')} market changes, took ${formatTime(time)}`
+		)
 
-			MatchingEngine.allBooksInSync = true
-		}
 		setTimeout(MatchingEngine.persistAll, INTERVALS.PERSIST_ALL_BOOKS)
 	}
 
