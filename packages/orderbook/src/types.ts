@@ -132,10 +132,16 @@ export type bytes = {
 type ZodBigIntIsh = ZodUnion<[ZodString, ZodNumber, ZodBigInt]>
 type BigIntIsh = string | number | bigint
 
-export type ZodUint<T extends keyof uint> = ZodBigInt &
-	ZodEffects<ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>, uint[T], string>
-export type ZodInt<T extends keyof int> = ZodBigInt &
-	ZodEffects<ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>, int[T], BigIntIsh>
+export type ZodUint<T extends keyof uint> = ZodEffects<
+	ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>,
+	uint[T],
+	BigIntIsh
+>
+export type ZodInt<T extends keyof int> = ZodEffects<
+	ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>,
+	int[T],
+	BigIntIsh
+>
 export type ZodBytes<T extends keyof bytes> = ZodEffects<
 	ZodEffects<ZodString, HexString, string>,
 	bytes[T],
