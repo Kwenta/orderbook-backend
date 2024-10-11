@@ -47,7 +47,9 @@ const printMetrics = () => {
 	}
 }
 
-setInterval(printMetrics, 1000)
+if (process.env.ENABLE_PERF_METRICS) {
+	setInterval(printMetrics, 1000)
+}
 
 export const perfFunc =
 	(name: string, objName = '') =>
@@ -95,6 +97,9 @@ const isAsyncFn = (fn: any): fn is AsyncFn => {
 }
 
 export const addPerfToInstance = <T extends object>(name: string, inst: T) => {
+	if (!process.env.ENABLE_PERF_METRICS) {
+		return
+	}
 	for (const k of Object.getOwnPropertyNames(Object.getPrototypeOf(inst))) {
 		const key = k as keyof T & string
 
@@ -108,6 +113,9 @@ export const addPerfToInstance = <T extends object>(name: string, inst: T) => {
 }
 
 export const addPerfToStatics = <T extends Constructor>(name: string, classObj: T) => {
+	if (!process.env.ENABLE_PERF_METRICS) {
+		return
+	}
 	for (const k of Object.getOwnPropertyNames(classObj)) {
 		const key = k as keyof T & string
 
