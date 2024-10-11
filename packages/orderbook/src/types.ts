@@ -10,6 +10,8 @@ import type {
 export type Market = { id: uint[128]; symbol: string }
 export type MarketId = Market['id']
 
+export type SupportedChains = 8453
+
 export type HexString = `0x${string}`
 
 export type Sizes =
@@ -127,17 +129,19 @@ export type bytes = {
 	[T in BytesSizes]: HexString & { _type?: `bytes${T}` }
 }
 
+type ZodBigIntIsh = ZodUnion<[ZodString, ZodNumber, ZodBigInt]>
+type BigIntIsh = string | number | bigint
+
 export type ZodUint<T extends keyof uint> = ZodEffects<
-	ZodEffects<ZodUnion<[ZodString, ZodNumber, ZodBigInt]>, bigint, number | string | bigint>,
+	ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>,
 	uint[T],
-	string
+	BigIntIsh
 >
 export type ZodInt<T extends keyof int> = ZodEffects<
-	ZodEffects<ZodUnion<[ZodString, ZodNumber, ZodBigInt]>, bigint, number | string | bigint>,
+	ZodEffects<ZodBigIntIsh, bigint, BigIntIsh>,
 	int[T],
-	string
+	BigIntIsh
 >
-
 export type ZodBytes<T extends keyof bytes> = ZodEffects<
 	ZodEffects<ZodString, HexString, string>,
 	bytes[T],
@@ -152,3 +156,6 @@ export type Condition = z.infer<typeof conditionSchema>
 export type Order = z.infer<typeof orderSchema>
 
 export type AccountId = Trader['accountId']
+
+export type LimitOrderRaw = { signature: HexString; order: Order }
+export type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }

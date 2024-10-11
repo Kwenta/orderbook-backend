@@ -1,28 +1,26 @@
 import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
+import type { Worker } from 'node:worker_threads'
 import { HTTPException } from 'hono/http-exception'
-import { type Address, zeroAddress } from 'viem'
+import { INTERVALS } from '../constants'
+import { ansiColorWrap, logger } from '../logger'
 import { loadMarkets } from '../markets'
-import { checkSignatureOfOrder } from '../signing'
-import type { HexString, Order, int } from '../types'
+import { addPerfToInstance, addPerfToStatics, formatTime } from '../monitoring'
+import { checkDeleteSignature, checkOrderSignature } from '../signing'
+import {
+	type AccountId,
+	type HexString,
+	type LimitOrder,
+	type LimitOrderRaw,
+	OrderType,
+} from '../types'
 import type { Market, MarketId } from '../types'
+import { marketSide } from '../utils'
 import { emitters } from './events'
-import { incrementNonce, nonceOfUser } from './nonce'
+import { Nonce } from './nonce'
 
-type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }
-
-type LimitOrderRaw = { signature: HexString; user: HexString; order: Order }
-
-const side = (order: Order) => (order.trade.size < BigInt(0) ? 'sell' : 'buy')
-
-const checkOrderSignature = async (order: LimitOrder) => {
-	return checkSignatureOfOrder(order.order, zeroAddress, BigInt(8453), order.user, order.signature)
-}
-
-const checkDeleteSignature = async (lo: LimitOrder) => {
-	const newOrder = structuredClone(lo)
-	newOrder.order.trade.size = BigInt(0) as int[128]
-	return await checkOrderSignature(newOrder)
+type Book = {
+	orders: LimitOrder[]
 }
 
 export class MatchingEngine {
@@ -32,6 +30,20 @@ export class MatchingEngine {
 	private orderIdToPrice: Map<string, bigint>
 
 	private eventEmitter: EventEmitter
+
+	/**
+	 * If the book has been checked for settles since the last change
+	 * Set to false whenever an order is updated, added or deleted
+	 * Set to true after a checkForPossibleSettles call
+	 */
+	// private bookClean = false
+
+	/**
+	 * If the book is in sync with the db
+	 * Set to false whenever an order is added, updated or deleted
+	 * Set to true after a persistBook call
+	 */
+	// private bookInSync = false
 
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
@@ -43,19 +55,55 @@ export class MatchingEngine {
 			throw new Error(`Event emitter not found for market ${market.id}`)
 		}
 
-		this.eventEmitter.on('liquidation', (user: Address) => {
+		this.eventEmitter.on('liquidation', (user: AccountId) => {
 			this.removeUserOrders(user)
 		})
+
+		addPerfToInstance('MatchingEngine', this)
+	}
+
+	async initBookFromDB() {
+		MatchingEngine.worker?.postMessage(
+			JSON.stringify({ type: 'load_book', data: { marketId: this.market.id } })
+		)
+		const book = await new Promise<Book>((resolve) => {
+			const resolveWhenBook = (message: string) => {
+				const data = JSON.parse(message)
+
+				if (data.type === 'book_init') {
+					MatchingEngine.worker?.off('message', resolveWhenBook)
+					resolve(data.book)
+				}
+			}
+			MatchingEngine.worker?.on('message', resolveWhenBook)
+		})
+
+		logger.debug(`Loaded book ${this.market.id}, ${book.orders.length} orders`)
+
+		for (const order of book.orders) this.addOrderUnsafe(order)
+	}
+
+	persistBook() {
+		// if (this.bookInSync) return false
+		// TODO: Ensure ordering of orders array
+		const orders = [...this.getOrders('all')]
+
+		MatchingEngine.worker?.postMessage(
+			JSON.stringify({ type: 'book', data: { marketId: this.market.id, orders } })
+		)
+		// this.bookInSync = true
+		return true
 	}
 
 	close() {
+		this.persistBook()
 		this.onChainClosed = true
 	}
 
-	removeUserOrders(user: Address) {
+	removeUserOrders(user: AccountId) {
 		for (const [price, priceMap] of this.buyOrders) {
-			for (const [orderId, { user: orderUser }] of priceMap) {
-				if (orderUser === user) {
+			for (const [orderId, { order }] of priceMap) {
+				if (order.trader.accountId === user) {
 					this.orderIdToPrice.delete(orderId)
 					priceMap.delete(orderId)
 					if (priceMap.size === 0) this.buyOrders.delete(price)
@@ -64,8 +112,8 @@ export class MatchingEngine {
 		}
 
 		for (const [price, priceMap] of this.sellOrders) {
-			for (const [orderId, { user: orderUser }] of priceMap) {
-				if (orderUser === user) {
+			for (const [orderId, { order }] of priceMap) {
+				if (order.trader.accountId === user) {
 					this.orderIdToPrice.delete(orderId)
 					priceMap.delete(orderId)
 					if (priceMap.size === 0) this.sellOrders.delete(price)
@@ -73,44 +121,101 @@ export class MatchingEngine {
 			}
 		}
 
+		// this.bookClean = false
+		// this.bookInSync = false
 		this.checkForPossibleSettles()
 	}
 
-	async addOrder(orderData: LimitOrderRaw) {
-		if (this.onChainClosed) throw new Error('Market is closed')
+	// TODO: Check accountId is valid
+	// TODO: Check signer is owner OR delegate
+	// TODO: Check account has margin
+	// TODO: Check nonce on chain before settle
+	// TODO: Extract all checks to helper
+	async checkOrderIsValid(orderData: LimitOrder) {
+		try {
+			await this.checkOrderIsValidOrFail(orderData)
+			return true
+		} catch (e) {
+			return false
+		}
+	}
+
+	async checkOrderIsValidOrFail(orderData: LimitOrder) {
+		const { order } = orderData
 		const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
-		if (orderData.order.metadata.expiration <= currentTimestamp) {
+
+		if (order.metadata.expiration <= currentTimestamp) {
 			throw new Error('Order has expired')
 		}
 
-		if (orderData.order.trader.nonce !== nonceOfUser(orderData.order.trader.accountId).nonce) {
-			throw new Error('Invalid nonce')
-		}
+		// if (order.trader.nonce !== Nonce.get(order.trader.accountId).nonce) {
+		// 	throw new Error('Invalid nonce')
+		// }
 
-		const orderWithId: LimitOrder = {
-			...orderData,
-			id: randomBytes(16).toString('hex'),
-			timestamp: currentTimestamp,
-		}
-
-		const { order, id } = orderWithId
-		const price = order.trade.price
-
-		if (!(await checkOrderSignature(orderWithId))) {
+		if (!(await checkOrderSignature(orderData))) {
 			throw new Error('Invalid order signature')
 		}
 
-		const orderMap = side(order) === 'buy' ? this.buyOrders : this.sellOrders
+		return true
+	}
+
+	async addOrder(orderData: LimitOrderRaw) {
+		logger.debug(`Adding order to market ${this.market.id} of type ${orderData.order.trade.t}`)
+		if (this.onChainClosed) throw new Error('Market is closed')
+		const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
+
+		const id = randomBytes(16).toString('hex')
+
+		const orderWithId: LimitOrder = {
+			...orderData,
+			id,
+			timestamp: currentTimestamp,
+		}
+		await this.checkOrderIsValidOrFail(orderWithId)
+
+		switch (orderWithId.order.trade.t) {
+			case OrderType.LIMIT:
+			case OrderType.STOP:
+			case OrderType.STOP_LIMIT:
+				this.addOrderUnsafe(orderWithId)
+				break
+			case OrderType.MARKET: {
+				// Attempt to settle immediately, do not persist
+				this.addOrderUnsafe(orderWithId)
+				const onBook = this.getOrder(id)
+
+				if (onBook) {
+					this.deleteOrder(id, orderData.signature)
+				}
+				break
+			}
+			default:
+				throw new Error('Invalid order type')
+		}
+
+		const nonce = Nonce.get(orderData.order.trader.accountId);
+		nonce.increment()
+		logger.debug(`Nonce of ${orderData.order.trader.accountId} incremented to ${nonce.nonce}`)
+
+		await this.checkForPossibleSettles()
+		return id
+	}
+
+	private addOrderUnsafe(orderData: LimitOrder) {
+		const { order, id } = orderData
+		const price = order.trade.price
+
+		const orderMap = marketSide(order) === 'buy' ? this.buyOrders : this.sellOrders
 		if (!orderMap.has(price)) {
 			orderMap.set(price, new Map())
 		}
 
-		orderMap.get(price)?.set(id, orderWithId)
+		orderMap.get(price)?.set(id, orderData)
 		this.orderIdToPrice.set(id, price)
 
-		incrementNonce(orderData.order.trader.accountId)
+		// this.bookClean = false
+		// this.bookInSync = false
 
-		await this.checkForPossibleSettles()
 		return id
 	}
 
@@ -156,16 +261,17 @@ export class MatchingEngine {
 	}
 
 	async updateOrder(newOrder: LimitOrder & { id: string }) {
+		logger.debug(`Updating order ${newOrder.id} on market ${this.market.id}`)
 		if (this.onChainClosed) throw new Error('Market is closed')
 		await checkOrderSignature(newOrder)
 
 		// Just remove from memory, not onchain
 		this.deleteOrder(newOrder.id, newOrder.signature)
-
 		this.addOrder(newOrder)
 	}
 
 	async deleteOrder(orderId: string, signature: HexString) {
+		logger.debug(`Deleting order ${orderId} on market ${this.market.id}`)
 		const order = this.getOrder(orderId)
 		if (!order) {
 			throw new Error('Order not found')
@@ -175,19 +281,21 @@ export class MatchingEngine {
 
 		const price = this.orderIdToPrice.get(orderId)
 		if (!price) throw new Error('Price not found')
-		const orderMap = side(order.order) === 'buy' ? this.buyOrders : this.sellOrders
+		const orderMap = marketSide(order.order) === 'buy' ? this.buyOrders : this.sellOrders
 		orderMap.get(price)?.delete(orderId)
 		if (orderMap.get(price)?.size === 0) {
 			orderMap.delete(price)
 		}
 		this.orderIdToPrice.delete(orderId)
+
+		// this.bookClean = false
+		// this.bookInSync = false
 	}
 
-	pruneBook() {
-		const currentTimestamp = BigInt(Math.floor(Date.now() / 1000))
+	async pruneBook() {
 		for (const [_price, buyOrdersMap] of this.buyOrders) {
 			for (const [orderId, { order, signature }] of buyOrdersMap) {
-				if (order.metadata.expiration <= currentTimestamp) {
+				if (!(await this.checkOrderIsValid({ order, signature, id: orderId }))) {
 					this.deleteOrder(orderId, signature)
 				}
 			}
@@ -195,60 +303,126 @@ export class MatchingEngine {
 
 		for (const [_price, sellOrdersMap] of this.sellOrders) {
 			for (const [orderId, { order, signature }] of sellOrdersMap) {
-				if (order.metadata.expiration <= currentTimestamp) {
+				if (!(await this.checkOrderIsValid({ order, signature, id: orderId }))) {
 					this.deleteOrder(orderId, signature)
 				}
 			}
 		}
+
+		// this.bookClean = true
+		// this.bookInSync = false
 	}
 
-	checkForPossibleSettles() {
-		const matchingOrders: LimitOrder[] = []
+	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {}
+
+	async checkForPossibleSettles() {
+		// if (this.bookClean) return
+
+		const matchingOrders: { buy: LimitOrder[]; sell: LimitOrder[] }[] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
 			const sellOrdersMap = this.sellOrders.get(price)
 
 			if (sellOrdersMap) {
-				matchingOrders.push(...buyOrdersMap.values())
-				matchingOrders.push(...sellOrdersMap.values())
+				const matches = { buy: [...buyOrdersMap.values()], sell: [...sellOrdersMap.values()] }
+				matchingOrders.push(matches)
+			}
+		}
+
+		for (const matches of matchingOrders) {
+			const { buy, sell } = matches
+			buy.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
+			sell.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
+
+			const totalToSettle = Math.min(buy.length, sell.length)
+
+			for (let i = 0; i < totalToSettle; i++) {
+				const buyOrder = buy[i]
+				const sellOrder = sell[i]
+				await this.settle(buyOrder!, sellOrder!)
 			}
 		}
 
 		// TODO: Decide how we order the matching
 
 		// Pair up orders, then recheck for settles
+
+		this.pruneBook()
+
 		return matchingOrders
 	}
-}
 
-export const engines = new Map<MarketId, MatchingEngine>()
+	private static engines = new Map<MarketId, MatchingEngine>()
 
-const addMissingEngines = async () => {
-	const markets = await loadMarkets()
-	for (const market of markets) {
-		if (!engines.has(market.id)) {
-			engines.set(market.id, new MatchingEngine(market))
-		}
+	private static worker?: Worker
+
+	static findOrFail(marketId?: MarketId) {
+		if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
+
+		const engine = MatchingEngine.engines.get(marketId)
+		if (!engine) throw new HTTPException(404, { message: 'The market was not found' })
+
+		return engine
 	}
 
-	// Validate all markets are still valid
-	for (const [marketId, engine] of engines) {
-		if (!markets.find((m) => m.id === marketId)) {
-			engine.close()
-		}
+	static async persistAll() {
+		const start = process.hrtime.bigint()
+		const results = [...MatchingEngine.engines.entries()].map(([marketId, engine]) => ({
+			marketId,
+			changed: engine.persistBook(),
+		}))
+
+		const changed = results.filter((r) => r.changed).map((r) => r.marketId)
+		const unchanged = results.filter((r) => !r.changed).map((r) => r.marketId)
+
+		const end = process.hrtime.bigint()
+
+		const time = end - start
+
+		logger.info(
+			`Persisted ${ansiColorWrap(changed.length, 'green')}:${ansiColorWrap(unchanged.length, 'red')} market changes, took ${formatTime(time)}`
+		)
+
+		setTimeout(MatchingEngine.persistAll, INTERVALS.PERSIST_ALL_BOOKS)
 	}
-}
 
-export const init = async () => {
-	await addMissingEngines()
-	setTimeout(addMissingEngines, 30 * 1000)
-}
+	static async addMissing() {
+		const markets = await loadMarkets()
 
-export const findEngineOrFail = (marketId?: MarketId) => {
-	if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
+		const marketsThatGotCreated = []
+		for (const market of markets) {
+			if (!MatchingEngine.engines.has(market.id)) {
+				const engine = new MatchingEngine(market)
+				await engine.initBookFromDB()
+				MatchingEngine.engines.set(market.id, engine)
+				marketsThatGotCreated.push(market)
+			}
+		}
 
-	const engine = engines.get(marketId)
-	if (!engine) throw new HTTPException(404, { message: 'The market was not found' })
+		logger.debug(`Creating engines for market ${marketsThatGotCreated.map((m) => m.id)}`)
+		for (const [marketId, engine] of MatchingEngine.engines) {
+			if (!markets.find((m) => m.id === marketId)) {
+				engine.close()
+			}
+		}
 
-	return engine
+		setTimeout(MatchingEngine.addMissing, INTERVALS.RECHECK_ENGINES)
+	}
+
+	static async checkAllForPossibleSettles() {
+		for (const engine of MatchingEngine.engines.values()) {
+			engine.checkForPossibleSettles()
+		}
+
+		setTimeout(MatchingEngine.checkAllForPossibleSettles, INTERVALS.RECHECK_SETTLES)
+	}
+
+	static async init(worker: Worker) {
+		MatchingEngine.worker = worker
+		await MatchingEngine.addMissing()
+		await MatchingEngine.persistAll()
+		await MatchingEngine.checkAllForPossibleSettles()
+
+		addPerfToStatics('MatchingEngine', MatchingEngine)
+	}
 }
