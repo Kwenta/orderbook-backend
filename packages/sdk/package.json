@@ -12,9 +12,7 @@
 			"types": "./dist/index.d.ts"
 		}
 	},
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"scripts": {
 		"build": "tsc --build",
 		"dev": "tsc --watch",
@@ -32,6 +30,7 @@
 	},
 	"devDependencies": {
 		"tsx": "^4.19.1",
-		"vitest": "^2.1.1"
+		"vitest": "^2.1.1",
+		"orderbook-backend": "workspace:*"
 	}
 }

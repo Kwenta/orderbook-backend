@@ -167,6 +167,9 @@ importers:
         specifier: ^2.21.6
         version: 2.21.16(bufferutil@4.0.8)(typescript@5.6.2)(utf-8-validate@5.0.10)(zod@3.23.8)
     devDependencies:
+      orderbook-backend:
+        specifier: workspace:*
+        version: link:../orderbook
       tsx:
         specifier: ^4.19.1
         version: 4.19.1

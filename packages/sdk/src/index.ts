@@ -1,8 +1,8 @@
 import KwentaSDK from '@kwenta/sdk'
 import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
-import type { AppRouter } from '@orderbook/routes'
-import type { Market, OrderType } from '@orderbook/types'
 import { hc } from 'hono/client'
+import type { AppRouter } from 'orderbook-backend/routes'
+import type { Market, OrderType } from 'orderbook-backend/types'
 import {
 	http,
 	type Address,
@@ -107,8 +107,8 @@ export class OrderbookSDK {
 		}
 
 		const nonce = await this.getNonce()
-		const now = Date.now()
-		const oneMonthAfter = now + 30 * 24 * 60 * 60 * 1000
+		const now = Math.floor(Date.now() / 1000)
+		const oneMonthAfter = now + 30 * 24 * 60 * 60
 
 		return {
 			accountId,
@@ -205,7 +205,7 @@ export class OrderbookSDK {
 			json: {
 				order: formattedOrder,
 				signature,
-				user: this.account.address,
+				// user: this.account.address,
 			},
 		})
 
