@@ -1,11 +1,10 @@
-import { parentPort, workerData } from 'node:worker_threads'
-import { Logger } from 'tslog'
+const { parentPort, workerData } = require('node:worker_threads')
+const { Logger } = require('tslog')
 
-import { config } from 'dotenv'
+const {config}= require( 'dotenv')
 config()
 
-import pg from 'pg'
-import format from 'pg-format'
+const pg = require( 'pg')
 
 const cols = {
 	black: 30,
@@ -80,7 +79,7 @@ const main = async () => {
 					'INSERT INTO books (market_id, book, timestamp) VALUES ($1, $2, $3) ON CONFLICT (market_id) DO UPDATE SET book = EXCLUDED.book, timestamp = EXCLUDED.timestamp',
 					[marketId, JSON.stringify(orders), new Date()]
 				)
-				workerLogger.info(`Got book for market ${marketId} with ${orders.length} orders`)
+				// workerLogger.info(`Got book for market ${marketId} with ${orders.length} orders`)
 				break
 			}
 			case 'nonce': {
