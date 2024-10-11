@@ -2,7 +2,7 @@ import { checksumAddress, hashTypedData, recoverTypedDataAddress } from 'viem'
 import { chainId, verifyingContract } from './env'
 import type { Order as FullOrder, HexString, LimitOrder, int } from './types'
 
-const types = {
+export const types = {
 	Order: [
 		{ name: 'metadata', type: 'Metadata' },
 		{ name: 'trader', type: 'Trader' },
@@ -34,7 +34,7 @@ const types = {
 	],
 } as const
 
-const domain = {
+export const domain = {
 	chainId,
 	verifyingContract,
 	name: 'SyntheticPerpetualFutures',
