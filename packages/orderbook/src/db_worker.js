@@ -77,7 +77,7 @@ const main = async () => {
 				const { marketId, orders } = data.data
 
 				await pool.query(
-					'INSERT INTO books (market_id, book, timestamp) VALUES ($1, $2, $3) ON CONFLICT (market_id) DO UPDATE SET book = $2, timestamp = $3',
+					'INSERT INTO books (market_id, book, timestamp) VALUES ($1, $2, $3) ON CONFLICT (market_id) DO UPDATE SET book = EXCLUDED.book, timestamp = EXCLUDED.timestamp',
 					[marketId, JSON.stringify(orders), new Date()]
 				)
 				workerLogger.info(`Got book for market ${marketId} with ${orders.length} orders`)
@@ -90,12 +90,14 @@ const main = async () => {
 					break
 				}
 				workerLogger.debug(`Got nonces for ${nonces.length} accounts`)
-				const values = nonces.map((nonce) => [nonce.user, nonce.nonce, nonce.lastSeen])
-				const query = format(
-					'INSERT INTO NONCES (account_id, nonce, last_seen) VALUES %L ON CONFLICT (account_id) DO UPDATE SET nonce = EXCLUDED.nonce, last_seen = EXCLUDED.last_seen',
-					values
-				)
-				await pool.query(query)
+				await pool.query('BEGIN')
+				for (const nonce of nonces) {
+					await pool.query(
+						`INSERT INTO nonces (account_id, nonce, last_seen) VALUES ($1, $2, $3) ON CONFLICT (account_id) DO UPDATE SET nonce = EXCLUDED.nonce, last_seen = EXCLUDED.last_seen`,
+						[nonce.user, nonce.nonce, nonce.lastSeen]
+					)
+				}
+				await pool.query('COMMIT')
 
 				break
 			}
