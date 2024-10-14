@@ -1,20 +1,17 @@
-import { config } from 'dotenv'
 import { http, createPublicClient } from 'viem'
 import { base } from 'viem/chains'
 import { ONE_DAY, marketProxy, marketProxyABI } from './constants'
-import { chainId } from './env'
+import { chainId, rpcUrl } from './env'
 import { logger } from './logger'
 import { memoAsync } from './memo'
 import { perfFuncAsync } from './monitoring'
 import { solidity } from './schemas'
 import type { Market, SupportedChains } from './types'
 
-config()
-
 // TODO: Make work with any chain
-const baseClient = createPublicClient({
+export const baseClient = createPublicClient({
 	chain: base,
-	transport: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_PROJECT_ID}`),
+	transport: http(rpcUrl),
 })
 
 const getSymbols = perfFuncAsync('getSymbols')(
