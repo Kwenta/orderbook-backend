@@ -1,10 +1,13 @@
 import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 import type { Worker } from 'node:worker_threads'
+import { clearingHouseABI } from 'abi/ClearingHouse'
+import { verifyingContract } from 'env'
 import { HTTPException } from 'hono/http-exception'
+import { fromHex } from 'viem'
 import { INTERVALS } from '../constants'
 import { ansiColorWrap, logger } from '../logger'
-import { loadMarkets } from '../markets'
+import { baseClient, loadMarkets } from '../markets'
 import { addPerfToInstance, addPerfToStatics, formatTime } from '../monitoring'
 import { checkDeleteSignature, checkOrderSignature } from '../signing'
 import {
@@ -135,7 +138,7 @@ export class MatchingEngine {
 		try {
 			await this.checkOrderIsValidOrFail(orderData)
 			return true
-		} catch (e) {
+		} catch {
 			return false
 		}
 	}
@@ -193,7 +196,7 @@ export class MatchingEngine {
 				throw new Error('Invalid order type')
 		}
 
-		const nonce = Nonce.get(orderData.order.trader.accountId);
+		const nonce = Nonce.get(orderData.order.trader.accountId)
 		nonce.increment()
 		logger.debug(`Nonce of ${orderData.order.trader.accountId} incremented to ${nonce.nonce}`)
 
@@ -313,7 +316,30 @@ export class MatchingEngine {
 		// this.bookInSync = false
 	}
 
-	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {}
+	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {
+		console.log('Settlement', buyOrder, sellOrder)
+
+		try {
+			const settlementSimulate = await baseClient.readContract({
+				address: verifyingContract,
+				abi: clearingHouseABI,
+				functionName: 'canSettle',
+				args: [
+					{
+						orders: [buyOrder.order, sellOrder.order],
+						signatures: [buyOrder.signature, sellOrder.signature],
+					},
+				],
+			})
+
+			console.log({
+				success: settlementSimulate.success,
+				data: fromHex(settlementSimulate.data, 'string'),
+			})
+		} catch (e) {
+			console.dir(e, { depth: Number.POSITIVE_INFINITY })
+		}
+	}
 
 	async checkForPossibleSettles() {
 		// if (this.bookClean) return
