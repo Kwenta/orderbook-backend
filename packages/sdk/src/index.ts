@@ -128,28 +128,28 @@ export class OrderbookSDK {
 		return {
 			conditions: [],
 			metadata: {
-				expiration: BigInt(params.oneMonthAfter),
 				genesis: BigInt(params.now),
-				referrer: zeroAddress,
+				expiration: BigInt(params.oneMonthAfter),
 				trackingCode: stringToHex('KWENTA', { size: 32 }),
-			},
-			trader: {
-				accountId: params.accountId,
-				nonce: params.nonce,
-				signer: this.account!.address,
+				referrer: zeroAddress,
 			},
 			trade: {
-				marketId,
 				t,
-				price,
+				marketId,
 				size,
+				price,
+			},
+			trader: {
+				nonce: params.nonce,
+				accountId: params.accountId,
+				signer: this.account!.address,
 			},
 		} as const
 	}
 
 	private async signOrder(order: ReturnType<typeof this.prepareOrder>) {
 		const params = {
-			domain: domain(base.id, zeroAddress),
+			domain: domain(base.id),
 			message: order,
 			primaryType: 'Order' as const,
 			types: orderTypes,
