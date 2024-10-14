@@ -2,12 +2,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { OrderType, OrderbookSDK } from 'orderbook-sdk'
 import { useCallback, useEffect, useState } from 'react'
 import { base } from 'viem/chains'
-import { useAccount, useClient, useSignMessage, useSignTypedData } from 'wagmi'
+import { useAccount, useClient, useSignTypedData } from 'wagmi'
 
 export const useOrderbook = () => {
 	const { address } = useAccount()
 	const client = useClient()
-	const { signMessageAsync } = useSignMessage()
 	const { signTypedDataAsync } = useSignTypedData()
 	const queryClient = useQueryClient()
 
@@ -19,12 +18,11 @@ export const useOrderbook = () => {
 			setSdk(
 				new OrderbookSDK('http://localhost:3000', client.chain.rpcUrls.default.http[0], {
 					address,
-					signMessage: signMessageAsync,
 					signTypedData: signTypedDataAsync,
 				})
 			)
 		}
-	}, [address, client?.chain, signMessageAsync, signTypedDataAsync])
+	}, [address, client?.chain, signTypedDataAsync])
 
 	const { data: markets, isLoading: isLoadingMarkets } = useQuery({
 		queryKey: ['markets'],
@@ -77,7 +75,7 @@ export const useOrderbook = () => {
 			const response = await sdk.createOrder(
 				BigInt(orderData.marketId),
 				OrderType[orderData.type as keyof typeof OrderType],
-				BigInt(orderData.size),
+				BigInt(orderData.size) * (orderData.side === 'BUY' ? 1n : -1n),
 				BigInt(orderData.price)
 			)
 			console.log('Order created:', response)
