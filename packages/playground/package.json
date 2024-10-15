@@ -6,6 +6,7 @@
 		"dev": "next dev -p 8080",
 		"build": "next build",
 		"clean": "rm -rf dist",
+		"check-types": "tsc --noEmit",
 		"start": "next start"
 	},
 	"dependencies": {
