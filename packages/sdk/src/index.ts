@@ -2,23 +2,19 @@ import KwentaSDK from '@kwenta/sdk'
 import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
 import { hc } from 'hono/client'
 import type { AppRouter } from 'orderbook-backend/routes'
-import type { Market, OrderType } from 'orderbook-backend/types'
+import { domain, orderTypes } from 'orderbook-backend/signing'
+import { OrderType } from 'orderbook-backend/types'
 import {
 	http,
-	type Address,
-	type Hex,
 	type HttpTransport,
 	type PublicClient,
-	type SignableMessage,
 	createPublicClient,
 	hashTypedData,
 	stringToHex,
 	zeroAddress,
 } from 'viem'
 import { base } from 'viem/chains'
-import { orderTypes } from './constants'
 import type { SDKAccount } from './types'
-import { domain } from './utils'
 
 export class OrderbookSDK {
 	private readonly client: ReturnType<typeof hc<AppRouter>>
@@ -78,12 +74,12 @@ export class OrderbookSDK {
 	async getMarkets() {
 		const response = await this.client.markets.$get({ query: {} })
 
-		return (await response.json()) as unknown as Promise<Market[]>
+		return response.json()
 	}
 
 	async getMarket(id: bigint) {
 		const response = await this.client.markets.$get({ query: { marketId: id.toString() } })
-		return response.json() as Promise<Market>
+		return response.json()
 	}
 
 	async getOrders(marketId: bigint) {
@@ -149,7 +145,7 @@ export class OrderbookSDK {
 
 	private async signOrder(order: ReturnType<typeof this.prepareOrder>) {
 		const params = {
-			domain: domain(base.id),
+			domain,
 			message: order,
 			primaryType: 'Order' as const,
 			types: orderTypes,
@@ -296,6 +292,4 @@ export class OrderbookSDK {
 	}
 }
 
-export * from './constants'
-export * from './types'
-export * from './utils'
+export { OrderType }
