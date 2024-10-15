@@ -31,8 +31,8 @@
 			"default": "./dist/schemas.js"
 		},
 		"./routes": {
-			"types": "./src/routes/rpc.d.ts",
-			"default": "./dist/routes/rpc.js"
+			"types": "./src/routes/index.d.ts",
+			"default": "./dist/routes/index.js"
 		},
 		"./constants": {
 			"types": "./src/constants.d.ts",

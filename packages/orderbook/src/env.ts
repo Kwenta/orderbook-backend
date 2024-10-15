@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
-import { logger } from 'logger'
 import { type Address, type Hex, zeroAddress } from 'viem'
+import { logger } from './logger'
 import type { SupportedChains } from './types'
 
 // TODO: Replace this with a zod env schema

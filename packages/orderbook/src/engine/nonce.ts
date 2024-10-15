@@ -1,8 +1,8 @@
 import type { Worker } from 'node:worker_threads'
-import { uint256 } from 'schemas/solidity'
 import { INTERVALS } from '../constants'
 import { logger } from '../logger'
 import { addPerfToInstance, addPerfToStatics } from '../monitoring'
+import { uint256 } from '../schemas/solidity'
 import type { AccountId, uint } from '../types'
 
 type DBNonce = {
