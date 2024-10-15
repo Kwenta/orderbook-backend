@@ -2,15 +2,13 @@
 	"name": "@kwenta/orderbook",
 	"version": "1.0.0",
 	"description": "Orderbook implementation for Synthetix V3 Protocol",
+	"packageManager": "pnpm@9.6.0",
 	"scripts": {
 		"lint": "biome check .",
 		"lint:version": "biome -V",
 		"lint:fix": "biome check --write .",
-		"dev": "pnpm run clean && pnpm run build:sdk && concurrently \"pnpm:dev:*\"",
-		"dev:sdk": "pnpm --filter orderbook-sdk run dev",
-		"dev:backend": "pnpm --filter orderbook-backend run dev",
-		"dev:playground": "pnpm --filter orderbook-playground run dev",
-		"build:sdk": "pnpm --filter orderbook-sdk run build",
+		"dev": "turbo dev",
+		"build": "turbo build",
 		"clean": "pnpm run --filter \"orderbook*\" --parallel clean",
 		"test": "pnpm run --filter \"orderbook*\" --parallel test"
 	},
@@ -20,6 +18,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.8.3",
 		"@kwenta/biome-config": "^1.0.0",
-		"concurrently": "^9.0.1"
+		"turbo": "^2.1.3"
 	}
 }
