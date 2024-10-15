@@ -1,42 +1,66 @@
 {
 	"name": "orderbook-backend",
 	"scripts": {
-		"build": "tsc --project ./tsconfig.json",
-		"dev": "tsx watch src/index.ts",
+		"build": "tsc",
+		"dev": "concurrently \"tsx watch src/index.ts\" \"tsc --watch\"",
+		"check-types": "tsc --noEmit",
 		"start": "node dist/index.js",
-		"clean": "rm -rf dist",
+		"clean": "rm -rf tsconfig.tsbuildinfo && rm -rf dist",
 		"test": "vitest"
 	},
 	"main": "./src/index.ts",
 	"exports": {
-		".": "./src/index.ts",
-		"./types": "./src/types.ts",
-		"./signing": "./src/signing.ts",
-		"./utils": "./src/utils.ts",
-		"./schemas": "./src/schemas.ts",
-		"./routes": "./src/routes/index.ts"
+		".": {
+			"types": "./src/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./types": {
+			"types": "./src/types.d.ts",
+			"default": "./dist/types.js"
+		},
+		"./signing": {
+			"types": "./src/signing.d.ts",
+			"default": "./dist/signing.js"
+		},
+		"./utils": {
+			"types": "./src/utils.d.ts",
+			"default": "./dist/utils.js"
+		},
+		"./schemas": {
+			"types": "./src/schemas.d.ts",
+			"default": "./dist/schemas.js"
+		},
+		"./routes": {
+			"types": "./src/routes/rpc.d.ts",
+			"default": "./dist/routes/rpc.js"
+		},
+		"./constants": {
+			"types": "./src/constants.d.ts",
+			"default": "./dist/constants.js"
+		}
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.12.2",
 		"@hono/node-ws": "^1.0.4",
 		"@hono/swagger-ui": "^0.4.1",
 		"@hono/zod-openapi": "^0.16.0",
-		"@types/jest": "^29.5.12",
-		"@types/pg": "^8.11.10",
 		"hono": "^4.5.9",
 		"node-cache": "^5.1.2",
 		"pg": "^8.13.0",
 		"pg-format": "^1.0.4",
 		"tslog": "^4.9.3",
 		"viem": "^2.21.6",
-		"vitest": "^2.0.5",
 		"zod": "^3.23.8"
 	},
 	"devDependencies": {
+		"@types/jest": "^29.5.12",
 		"@types/node": "latest",
+		"@types/pg": "^8.11.10",
 		"@vitest/coverage-v8": "^2.0.5",
+		"concurrently": "^9.0.1",
 		"dotenv": "^16.4.5",
 		"tsx": "^4.19.1",
-		"typescript": "^5.6.2"
+		"typescript": "^5.6.2",
+		"vitest": "^2.0.5"
 	}
 }

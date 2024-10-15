@@ -32,9 +32,6 @@ importers:
       '@hono/zod-openapi':
         specifier: ^0.16.0
         version: 0.16.2(hono@4.6.3)(zod@3.23.8)
-      concurrently:
-        specifier: ^9.0.1
-        version: 9.0.1
       hono:
         specifier: ^4.5.9
         version: 4.6.3
@@ -69,6 +66,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^2.0.5
         version: 2.1.1(vitest@2.1.1(@types/node@22.7.5)(terser@5.34.1))
+      concurrently:
+        specifier: ^9.0.1
+        version: 9.0.1
       dotenv:
         specifier: ^16.4.5
         version: 16.4.5
