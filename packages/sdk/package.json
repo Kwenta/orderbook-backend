@@ -2,20 +2,27 @@
 	"name": "orderbook-sdk",
 	"version": "1.0.0",
 	"description": "SDK for interacting with the Synthetix V3 Orderbook",
-	"main": "./dist/index.js",
-	"module": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"main": "dist/index.js",
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
+	"type": "commonjs",
+	"files": ["dist"],
 	"exports": {
 		".": {
-			"import": "./dist/index.js",
-			"require": "./dist/index.js",
-			"types": "./dist/index.d.ts"
+			"import": {
+				"types": "./dist/index.d.mts",
+				"default": "./dist/index.mjs"
+			},
+			"require": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			}
 		}
 	},
-	"files": ["dist"],
 	"scripts": {
-		"build": "tsc --build",
-		"dev": "tsc --watch",
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"check-types": "tsc --noEmit",
 		"clean": "rm -f tsconfig.tsbuildinfo && rm -rf dist",
 		"prepublishOnly": "npm run clean && npm run build",
 		"test": "vitest"
@@ -25,12 +32,14 @@
 	"license": "ISC",
 	"dependencies": {
 		"@kwenta/sdk": "^1.2.0",
-		"hono": "^4.5.9",
+		"dts-bundle-generator": "^9.5.1",
 		"viem": "^2.21.6"
 	},
 	"devDependencies": {
-		"tsx": "^4.19.1",
-		"vitest": "^2.1.1",
-		"orderbook-backend": "workspace:*"
+		"hono": "^4.5.9",
+		"orderbook-backend": "workspace:*",
+		"tsup": "^8.3.0",
+		"typescript": "^5.6.3",
+		"vitest": "^2.1.1"
 	}
 }

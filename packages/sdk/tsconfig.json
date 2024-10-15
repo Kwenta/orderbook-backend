@@ -16,15 +16,8 @@
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
 		"isolatedModules": true,
-		"esModuleInterop": true,
-		"composite": true,
-		"declaration": true,
-		"declarationMap": true,
-		"paths": {
-			"@orderbook/*": ["../orderbook/src/*"]
-		}
+		"esModuleInterop": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["node_modules", "dist"],
-	"references": [{ "path": "../orderbook" }]
+	"include": ["src/*.ts"],
+	"exclude": ["node_modules", "dist"]
 }
