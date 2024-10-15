@@ -43,7 +43,7 @@ export const useOrderbook = () => {
 			if (!sdk || !address) return []
 			const allMarkets = await sdk.getMarkets()
 			const userOrdersPromises = allMarkets.map(async (market) => {
-				const orders = await sdk.getOrders(market.id)
+				const orders = await sdk.getOrders(BigInt(String(market.id)))
 				return orders
 					.filter((order) => order.order.trader.signer === address)
 					.map((order) => ({

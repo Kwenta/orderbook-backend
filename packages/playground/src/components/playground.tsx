@@ -194,8 +194,8 @@ const PlaygroundSecond: FC = () => {
 										<SelectContent className="bg-gray-900 border-gray-700">
 											{markets?.map((market) => (
 												<SelectItem
-													key={market.id.toString()}
-													value={market.id.toString()}
+													key={String(market.id)}
+													value={String(market.id)}
 													className="text-white"
 												>
 													{market.symbol}
