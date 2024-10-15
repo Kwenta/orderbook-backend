@@ -1,12 +1,9 @@
 import * as path from 'path'
 import { Logger } from 'tslog'
 import { LOG_COLOURS, LOG_LEVELS } from './constants'
-import { perfFunc } from './monitoring'
 
-export const ansiColorWrap = perfFunc('ansiColorWrap')(
-	(val: string | number, code: keyof typeof LOG_COLOURS) =>
-		`\u001b[${LOG_COLOURS[code]}m${val}\u001b[0m`
-)
+export const ansiColorWrap = (val: string | number, code: keyof typeof LOG_COLOURS) =>
+	`\u001b[${LOG_COLOURS[code]}m${val}\u001b[0m`
 
 const root = `${path.join(__dirname, '..').replace(/^[a-zA-Z]:/, '')}\\`
 
