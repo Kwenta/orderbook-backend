@@ -6,9 +6,9 @@ import type { SupportedChains } from './types'
 // TODO: Replace this with a zod env schema
 config()
 
-// export const privateKey = process.env.PRIVATE_KEY as Hex
+export const privateKey = process.env.PRIVATE_KEY as Hex
 
-// if (!privateKey) logger.info('PRIVATE_KEY is not set')
+if (!privateKey) logger.info('PRIVATE_KEY is not set')
 
 export const rpcUrl = process.env.RPC_URL!
 if (!rpcUrl) logger.info('RPC_URL is not set')
