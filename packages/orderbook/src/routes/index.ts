@@ -1,6 +1,7 @@
 import { swaggerUI } from '@hono/swagger-ui'
 import { OpenAPIHono, z } from '@hono/zod-openapi'
 import { marketRouter } from './markets'
+import { metadataRouter } from './metadata'
 import { orderRouter } from './orders'
 import { userRouter } from './user'
 
@@ -23,6 +24,7 @@ const routes = app
 	.route('/markets', marketRouter)
 	.route('/orders', orderRouter)
 	.route('/user', userRouter)
+	.route('/metadata', metadataRouter)
 
 export type AppRouter = typeof routes
 
