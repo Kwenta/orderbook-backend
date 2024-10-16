@@ -1,43 +1,29 @@
-import type { AppRouter } from '@orderbook/routes'
+import KwentaSDK from '@kwenta/sdk'
+import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
 import { hc } from 'hono/client'
+import type { AppRouter } from 'orderbook-backend/routes'
+import { domain, orderTypes } from 'orderbook-backend/signing'
+import { OrderType } from 'orderbook-backend/types'
 import {
 	http,
-	type Address,
 	type HttpTransport,
 	type PublicClient,
-	type SignMessageParameters,
-	type SignMessageReturnType,
-	type SignTypedDataParameters,
-	type SignTypedDataReturnType,
-	type SignableMessage,
 	createPublicClient,
+	hashTypedData,
+	stringToHex,
+	zeroAddress,
 } from 'viem'
 import { base } from 'viem/chains'
-
-type GenericSignMessageParameters = {
-	message: SignableMessage
-	account?: Address
-}
-
-type GenericSignTypedDataParameters = {
-	domain: Record<string, any>
-	types: Record<string, Array<{ name: string; type: string }>>
-	primaryType: string
-	message: Record<string, any>
-	account?: Address
-}
-
-type SDKAccount = {
-	address: Address
-	signMessage: (args: GenericSignMessageParameters) => Promise<`0x${string}`>
-	signTypedData: (args: GenericSignTypedDataParameters) => Promise<`0x${string}`>
-}
+import type { SDKAccount } from './types'
 
 export class OrderbookSDK {
 	private readonly client: ReturnType<typeof hc<AppRouter>>
 	private readonly publicClient: PublicClient<HttpTransport, typeof base>
 	private readonly account?: SDKAccount
 
+	private kwentaSdk: KwentaSDK
+
+	private accountId?: bigint
 	constructor(apiUrl: string, rpcUrl?: string, account?: SDKAccount) {
 		this.client = hc<AppRouter>(apiUrl)
 		this.publicClient = createPublicClient({
@@ -45,12 +31,50 @@ export class OrderbookSDK {
 			chain: base,
 		})
 		this.account = account
+
+		this.kwentaSdk = new KwentaSDK({
+			apiUrl: 'https://api.kwenta.io',
+			supportedChains: {
+				[SupportedNetworkIds.BASE_MAINNET]: rpcUrl ? [rpcUrl] : [],
+				[SupportedNetworkIds.ARB_MAINNET]: ['https://arbitrum.llamarpc.com'],
+			},
+			logError: console.error,
+			walletAddress: account?.address,
+		})
+
+		if (account) {
+			this.getAccountId()
+		}
+	}
+
+	private async getAccountId() {
+		if (!this.account) {
+			return
+		}
+
+		if (this.accountId) {
+			return this.accountId
+		}
+
+		const accountIds = await this.kwentaSdk.snxPerpsV3.getAccounts(
+			this.account.address,
+			true,
+			SnxV3NetworkIds.BASE_MAINNET
+		)
+
+		if (accountIds.length === 0) {
+			throw new Error('Account not found')
+		}
+
+		this.accountId = accountIds?.[0]?.accountId
+
+		return this.accountId
 	}
 
 	async getMarkets() {
 		const response = await this.client.markets.$get({ query: {} })
 
-		return await response.json()
+		return response.json()
 	}
 
 	async getMarket(id: bigint) {
@@ -72,72 +96,200 @@ export class OrderbookSDK {
 		return response.json()
 	}
 
-	// async createOrder(marketId: bigint, order: z.infer<typeof orderSchema>) {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for creating orders')
-	// 	}
-	// 	const signature = await this.signOrder(order)
-	// 	const response = await this.client.orders[':marketId'].$post({
-	// 		param: { marketId },
-	// 		json: {
-	// 			order,
-	// 			signature,
-	// 			user: this.account.address,
-	// 		},
-	// 	})
-	// 	return response.json()
-	// }
+	private async getOrderParameters() {
+		const accountId = await this.getAccountId()
+		if (!accountId) {
+			throw new Error('Account ID not found')
+		}
 
-	// async updateOrder(
-	// 	marketId: z.infer<typeof marketId>,
-	// 	orderId: string,
-	// 	order: z.infer<typeof orderSchema>
-	// ) {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for updating orders')
-	// 	}
-	// 	const signature = await this.signOrder(order)
-	// 	const response = await this.client.orders[':marketId'][':orderId'].$patch({
-	// 		param: { marketId, orderId },
-	// 		json: { ...order, signature },
-	// 	})
-	// 	return response.json()
-	// }
+		const nonce = await this.getNonce()
+		const now = Math.floor(Date.now() / 1000)
+		const oneMonthAfter = now + 30 * 24 * 60 * 60
 
-	// async deleteOrder(marketId: z.infer<typeof marketId>, orderId: string) {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for deleting orders')
-	// 	}
-	// 	const signature = await this.signDeleteOrder(marketId, orderId)
-	// 	const response = await this.client.orders[':marketId'][':orderId'].$delete({
-	// 		param: { marketId, orderId },
-	// 		json: { signature },
-	// 	})
-	// 	return response.json()
-	// }
+		return {
+			accountId,
+			nonce,
+			now,
+			oneMonthAfter,
+		}
+	}
 
-	// async getOrderBook(marketId: bigint) {
-	// 	const response = await this.client.book.$get({
-	// 		query: { marketId: marketId.toString(), offset: '0', limit: '100' },
-	// 	})
-	// 	return response.json()
-	// }
+	private prepareOrder(
+		params: Awaited<ReturnType<typeof this.getOrderParameters>>,
+		marketId: bigint,
+		t: (typeof OrderType)[keyof typeof OrderType],
+		size: bigint,
+		price: bigint
+	) {
+		return {
+			conditions: [],
+			metadata: {
+				genesis: BigInt(params.now),
+				expiration: BigInt(params.oneMonthAfter),
+				trackingCode: stringToHex('KWENTA', { size: 32 }),
+				referrer: zeroAddress,
+			},
+			trade: {
+				t,
+				marketId,
+				size,
+				price,
+			},
+			trader: {
+				nonce: params.nonce,
+				accountId: params.accountId,
+				signer: this.account!.address,
+			},
+		} as const
+	}
 
-	// Helper methods for signing
-	// private async signOrder(_order: z.infer<typeof orderSchema>): Promise<HexString> {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for signing orders')
-	// 	}
-	// 	// Implementation of order signing using signTypedData with viem
-	// 	// Here we need to use the order structure from the schema to create typed data
-	// 	throw new Error('Not implemented')
-	// }
+	private async signOrder(order: ReturnType<typeof this.prepareOrder>) {
+		const params = {
+			domain,
+			message: order,
+			primaryType: 'Order' as const,
+			types: orderTypes,
+		} as const
 
-	// private async signDeleteOrder(_marketId: bigint, _orderId: string): Promise<HexString> {
-	// 	if (!this.account) {
-	// 		throw new Error('Account is required for signing delete order requests')
-	// 	}
+		const _isValidOrder = hashTypedData(params)
 
-	// 	throw new Error('Not implemented')
-	// }
+		return await this.account!.signTypedData({
+			...params,
+			account: this.account!.address,
+		})
+	}
+
+	private formatOrderForRequest(order: ReturnType<typeof this.prepareOrder>) {
+		return {
+			conditions: [...order.conditions],
+			metadata: {
+				...order.metadata,
+				genesis: order.metadata.genesis.toString(),
+				expiration: order.metadata.expiration.toString(),
+			},
+			trade: {
+				...order.trade,
+				marketId: order.trade.marketId.toString(),
+				size: order.trade.size.toString(),
+				price: order.trade.price.toString(),
+			},
+			trader: {
+				...order.trader,
+				accountId: order.trader.accountId.toString(),
+				nonce: order.trader.nonce.toString(),
+			},
+		}
+	}
+
+	async createOrder(
+		marketId: bigint,
+		t: (typeof OrderType)[keyof typeof OrderType],
+		size: bigint,
+		price: bigint
+	) {
+		if (!this.account) {
+			throw new Error('Account is required for creating orders')
+		}
+
+		const params = await this.getOrderParameters()
+		const order = this.prepareOrder(params, marketId, t, size, price)
+		const signature = await this.signOrder(order)
+		const formattedOrder = this.formatOrderForRequest(order)
+
+		const response = await this.client.orders[':marketId'].$post({
+			param: { marketId: marketId.toString() },
+			json: {
+				order: formattedOrder,
+				signature,
+				// user: this.account.address,
+			},
+		})
+
+		return response.json()
+	}
+
+	async editOrder(
+		marketId: bigint,
+		orderId: string,
+		newOrder: {
+			orderType: (typeof OrderType)[keyof typeof OrderType]
+			size: bigint
+			price: bigint
+		}
+	) {
+		if (!this.account) {
+			throw new Error('Account is required for updating orders')
+		}
+
+		const params = await this.getOrderParameters()
+		const order = this.prepareOrder(
+			params,
+			marketId,
+			newOrder.orderType,
+			newOrder.size,
+			newOrder.price
+		)
+		const signature = await this.signOrder(order)
+		const formattedOrder = this.formatOrderForRequest(order)
+
+		const response = await this.client.orders[':marketId'][':orderId'].$patch({
+			param: { marketId: marketId.toString(), orderId },
+			json: {
+				id: orderId,
+				order: formattedOrder,
+				signature,
+				user: this.account.address,
+			},
+		})
+
+		return response.json()
+	}
+
+	async deleteOrder(marketId: bigint, orderId: string) {
+		if (!this.account) {
+			throw new Error('Account is required for deleting orders')
+		}
+
+		const { order: existingOrder } = await this.getOrder(marketId, orderId)
+		const params = await this.getOrderParameters()
+		const order = this.prepareOrder(
+			params,
+			marketId,
+			existingOrder.trade.t as (typeof OrderType)[keyof typeof OrderType],
+			BigInt(0),
+			BigInt(String(existingOrder.trade.price))
+		)
+		const signature = await this.signOrder(order)
+
+		const response = await this.client.orders[':marketId'][':orderId'].$delete({
+			param: { marketId: marketId.toString(), orderId },
+			json: {
+				signature,
+			},
+		})
+
+		return response.json()
+	}
+
+	private async getNonce() {
+		if (!this.account) {
+			throw new Error('Account is required for getting nonce')
+		}
+
+		const accountId = await this.getAccountId()
+
+		if (!accountId) {
+			throw new Error('Account ID not found')
+		}
+
+		const response = await this.client.user.nonce.$get({
+			query: { user: accountId.toString() },
+		})
+
+		const { nonce } = await response.json()
+
+		return BigInt(String(nonce))
+	}
 }
+
+export { OrderType }

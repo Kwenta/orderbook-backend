@@ -3,8 +3,9 @@ node_modules/
 
 coverage
 dist
-**/*.js
 
 .env
 
 tsconfig.tsbuildinfo
+
+.turbo

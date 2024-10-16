@@ -1,30 +1,12 @@
 import { checksumAddress, hashTypedData, recoverTypedDataAddress } from 'viem'
-import { chainId, verifyingContract } from './env'
 import type { Order as FullOrder, HexString, LimitOrder, int } from './types'
 
-const types = {
+export const orderTypes = {
 	Order: [
-		{ name: 'metadata', type: 'Metadata' },
-		{ name: 'trader', type: 'Trader' },
-		{ name: 'trade', type: 'Trade' },
 		{ name: 'conditions', type: 'Condition[]' },
-	],
-	Metadata: [
-		{ name: 'genesis', type: 'uint256' },
-		{ name: 'expiration', type: 'uint256' },
-		{ name: 'trackingCode', type: 'bytes32' },
-		{ name: 'referrer', type: 'address' },
-	],
-	Trader: [
-		{ name: 'nonce', type: 'uint256' },
-		{ name: 'accountId', type: 'uint128' },
-		{ name: 'signer', type: 'address' },
-	],
-	Trade: [
-		{ name: 't', type: 'uint8' },
-		{ name: 'marketId', type: 'uint128' },
-		{ name: 'size', type: 'int128' },
-		{ name: 'price', type: 'uint256' },
+		{ name: 'metadata', type: 'Metadata' },
+		{ name: 'trade', type: 'Trade' },
+		{ name: 'trader', type: 'Trader' },
 	],
 	Condition: [
 		{ name: 'target', type: 'address' },
@@ -32,17 +14,34 @@ const types = {
 		{ name: 'data', type: 'bytes' },
 		{ name: 'expected', type: 'bytes32' },
 	],
+	Metadata: [
+		{ name: 'genesis', type: 'uint256' },
+		{ name: 'expiration', type: 'uint256' },
+		{ name: 'trackingCode', type: 'bytes32' },
+		{ name: 'referrer', type: 'address' },
+	],
+	Trade: [
+		{ name: 't', type: 'uint8' },
+		{ name: 'marketId', type: 'uint128' },
+		{ name: 'size', type: 'int128' },
+		{ name: 'price', type: 'uint256' },
+	],
+	Trader: [
+		{ name: 'nonce', type: 'uint256' },
+		{ name: 'accountId', type: 'uint128' },
+		{ name: 'signer', type: 'address' },
+	],
 } as const
 
-const domain = {
-	chainId,
-	verifyingContract,
-	name: 'SyntheticPerpetualFutures',
+export const domain = {
+	chainId: 8453,
+	verifyingContract: '0x4219606c11dee683aa0ae395e481f841ca942371',
+	name: 'Mock Clearinghouse',
 	version: '1',
 } as const
 
 const typedData = (order: FullOrder) =>
-	({ domain, types, primaryType: 'Order', message: order }) as const
+	({ domain, types: orderTypes, primaryType: 'Order', message: order }) as const
 
 export const hashOfOrder = (order: FullOrder) => {
 	return hashTypedData(typedData(order))

@@ -1,3 +1,4 @@
+import type { Hash } from 'viem'
 import type { ZodBigInt, ZodEffects, ZodNumber, ZodString, ZodUnion, z } from 'zod'
 import type {
 	conditionSchema,
@@ -158,4 +159,19 @@ export type Order = z.infer<typeof orderSchema>
 export type AccountId = Trader['accountId']
 
 export type LimitOrderRaw = { signature: HexString; order: Order }
-export type LimitOrder = LimitOrderRaw & { id: string; timestamp?: bigint }
+
+export const ORDER_STATUSES = {
+	ACTIVE: 'active',
+	PENDING: 'pending',
+	EXECUTED: 'executed',
+	FAILED: 'failed',
+} as const
+
+export type OrderStatus = (typeof ORDER_STATUSES)[keyof typeof ORDER_STATUSES]
+
+export type LimitOrder = LimitOrderRaw & {
+	id: string
+	timestamp?: bigint
+	status: OrderStatus
+	txHash?: Hash
+}
