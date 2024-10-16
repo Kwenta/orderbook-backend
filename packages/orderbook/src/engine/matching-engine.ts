@@ -442,7 +442,6 @@ export class MatchingEngine {
 				}
 
 				if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
-					// Здесь можно реализовать более сложную логику матчинга
 					const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
 					matchingOrders.push(...matchedOrders)
 				}
