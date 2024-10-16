@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 import type { Worker } from 'node:worker_threads'
 import { HTTPException } from 'hono/http-exception'
-import { type Hash, fromHex } from 'viem'
+import { type Hash, fromHex, keccak256, toHex } from 'viem'
 import { clearingHouseABI } from '../abi/ClearingHouse'
 import { INTERVALS } from '../constants'
 import { verifyingContract } from '../env'
@@ -334,9 +334,9 @@ export class MatchingEngine {
 	}
 
 	async settle(matchedOrders: LimitOrder[]) {
-		const settlementId = randomBytes(16).toString('hex')
+		const orderIds = matchedOrders.map((order) => order.id).sort()
+		const settlementId = keccak256(toHex(orderIds.join('-')))
 
-		const orderIds = matchedOrders.map((order) => order.id)
 		if (orderIds.some((id) => this.isOrderInPendingSettlement(id))) {
 			logger.debug('Some orders are already in pending settlement')
 			return
