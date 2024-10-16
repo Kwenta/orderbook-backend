@@ -14,73 +14,8 @@ export type SupportedChains = 8453
 
 export type HexString = `0x${string}`
 
-export type Sizes =
-	| 8
-	| 16
-	| 24
-	| 32
-	| 40
-	| 48
-	| 56
-	| 64
-	| 72
-	| 80
-	| 88
-	| 96
-	| 104
-	| 112
-	| 120
-	| 128
-	| 136
-	| 144
-	| 152
-	| 160
-	| 168
-	| 176
-	| 184
-	| 192
-	| 200
-	| 208
-	| 216
-	| 224
-	| 232
-	| 240
-	| 248
-	| 256
-
-export type BytesSizes =
-	| 1
-	| 2
-	| 3
-	| 4
-	| 5
-	| 6
-	| 7
-	| 8
-	| 9
-	| 10
-	| 11
-	| 12
-	| 13
-	| 14
-	| 15
-	| 16
-	| 17
-	| 18
-	| 19
-	| 20
-	| 21
-	| 22
-	| 23
-	| 24
-	| 25
-	| 26
-	| 27
-	| 28
-	| 29
-	| 30
-	| 31
-	| 32
+export type IntSizes = 8 | 128 | 256
+export type BytesSizes = 4 | 32
 
 export const OrderType = {
 	// conditional execution:
@@ -118,11 +53,11 @@ export const OrderType = {
 } as const
 
 export type uint = {
-	[T in Sizes]: bigint & { _type?: `uint${T}` }
+	[T in IntSizes]: bigint & { _type?: `uint${T}` }
 }
 
 export type int = {
-	[T in Sizes]: bigint & { _type?: `int${T}` }
+	[T in IntSizes]: bigint & { _type?: `int${T}` }
 }
 
 export type bytes = {

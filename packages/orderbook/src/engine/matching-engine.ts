@@ -26,12 +26,24 @@ type Book = {
 	orders: LimitOrder[]
 }
 
+/**
+ * A class used to represent a single orderbook engine for a single market
+ * @param {Market} market The market that the matching engine will be tied to
+ * @class
+ */
 export class MatchingEngine {
+	/**
+	 * Whether the market is closed on chain, preventing further settles
+	 */
 	private onChainClosed = false
+
 	private buyOrders: Map<bigint, Map<string, LimitOrder>>
 	private sellOrders: Map<bigint, Map<string, LimitOrder>>
 	private orderIdToPrice: Map<string, bigint>
 
+	/**
+	 * The event emitted used to listen to various on chain and offchain events
+	 */
 	private eventEmitter: EventEmitter
 
 	/**
@@ -39,14 +51,14 @@ export class MatchingEngine {
 	 * Set to false whenever an order is updated, added or deleted
 	 * Set to true after a checkForPossibleSettles call
 	 */
-	// private bookClean = false
+	private bookClean = false
 
 	/**
 	 * If the book is in sync with the db
 	 * Set to false whenever an order is added, updated or deleted
 	 * Set to true after a persistBook call
 	 */
-	// private bookInSync = false
+	private bookInSync = false
 
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
@@ -87,7 +99,8 @@ export class MatchingEngine {
 	}
 
 	persistBook() {
-		// if (this.bookInSync) return false
+		// Don't bother to sync with the db if it's already in sync
+		if (this.bookInSync) return false
 		// TODO: Ensure ordering of orders array
 		const orders = [...this.getOrders('all')]
 
@@ -124,8 +137,8 @@ export class MatchingEngine {
 			}
 		}
 
-		// this.bookClean = false
-		// this.bookInSync = false
+		this.bookClean = false
+		this.bookInSync = false
 		this.checkForPossibleSettles()
 	}
 
@@ -216,8 +229,8 @@ export class MatchingEngine {
 		orderMap.get(price)?.set(id, orderData)
 		this.orderIdToPrice.set(id, price)
 
-		// this.bookClean = false
-		// this.bookInSync = false
+		this.bookClean = false
+		this.bookInSync = false
 
 		return id
 	}
@@ -291,8 +304,8 @@ export class MatchingEngine {
 		}
 		this.orderIdToPrice.delete(orderId)
 
-		// this.bookClean = false
-		// this.bookInSync = false
+		this.bookClean = false
+		this.bookInSync = false
 	}
 
 	async pruneBook() {
@@ -312,8 +325,8 @@ export class MatchingEngine {
 			}
 		}
 
-		// this.bookClean = true
-		// this.bookInSync = false
+		this.bookClean = true
+		this.bookInSync = false
 	}
 
 	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {
@@ -342,7 +355,8 @@ export class MatchingEngine {
 	}
 
 	async checkForPossibleSettles() {
-		// if (this.bookClean) return
+		// Don't check for settles if there have been on updates since last check
+		if (this.bookClean) return
 
 		const matchingOrders: { buy: LimitOrder[]; sell: LimitOrder[] }[] = []
 
