@@ -80,16 +80,17 @@ getOrders(marketId: bigint): Promise<{ id: string; order: Order }[]>
 enum OrderType {
   LIMIT,
   MARKET,
-  STOP_MARKET,
-  TAKE_PROFIT_MARKET
+  STOP,
+  STOP_LIMIT,
 }
 ```
 
 Represents the type of order:
 
-- `LIMIT`
-- `MARKET`
-- `STOP_MARKET`
+- `LIMIT` - A limit order is an order to buy or sell an asset at a specific price or better. It allows traders to set the maximum price they're willing to pay or the minimum price they're willing to accept.
+- `MARKET` - A market order is an order to buy or sell an asset immediately at the best available current price. It guarantees execution but does not guarantee a specific price.
+- `STOP` - A stop order, also known as a stop-loss order, is an order to buy or sell an asset when its price reaches a specified level. It's designed to limit an investor's loss or to protect a profit on an existing position.
+- `STOP_LIMIT` - A stop-limit order combines features of both stop and limit orders. It triggers a limit order to buy or sell an asset once a specified stop price is reached. It provides more control over the execution price compared to a regular stop order.
 - `TAKE_PROFIT_MARKET`
 
 ### Data Structures
@@ -115,7 +116,12 @@ interface Order {
     size: bigint;
     price: bigint;
   };
-  conditions: any[];
+  conditions: {
+    expected: `0x${string}`;
+    target: `0x${string}`;
+    selector: `0x${string}`;
+    data: `0x${string}`;
+  }[];
 }
 ```
 
