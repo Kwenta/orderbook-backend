@@ -8,6 +8,7 @@ import {
 	solidity,
 	unsignedOrderSchema,
 } from '../schemas'
+import { ORDER_STATUSES } from '../types'
 import { standardResponses } from '../utils'
 
 const addRoute = createRoute({
@@ -138,7 +139,7 @@ export const orderRouter = new OpenAPIHono()
 		)
 
 		const engine = MatchingEngine.findOrFail(marketId)
-		await engine.updateOrder({ ...newOrder, id: orderId })
+		await engine.updateOrder({ ...newOrder, id: orderId, status: ORDER_STATUSES.ACTIVE })
 
 		return c.json({ success: true }, 200)
 	})
