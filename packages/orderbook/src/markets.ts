@@ -1,7 +1,8 @@
-import { http, createPublicClient } from 'viem'
+import { http, createPublicClient, createWalletClient } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { base } from 'viem/chains'
 import { ONE_DAY, marketProxy, marketProxyABI } from './constants'
-import { chainId, rpcUrl } from './env'
+import { chainId, privateKey, rpcUrl } from './env'
 import { logger } from './logger'
 import { memoAsync } from './memo'
 import { perfFuncAsync } from './monitoring'
@@ -12,6 +13,12 @@ import type { Market, SupportedChains } from './types'
 export const baseClient = createPublicClient({
 	chain: base,
 	transport: http(rpcUrl),
+})
+
+export const walletClient = createWalletClient({
+	chain: base,
+	transport: http(rpcUrl),
+	account: privateKeyToAccount(privateKey),
 })
 
 const getSymbols = perfFuncAsync('getSymbols')(

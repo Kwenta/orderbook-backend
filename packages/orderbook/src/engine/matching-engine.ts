@@ -2,28 +2,35 @@ import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 import type { Worker } from 'node:worker_threads'
 import { HTTPException } from 'hono/http-exception'
-import { fromHex } from 'viem'
+import { type Hash, fromHex, keccak256, toHex } from 'viem'
 import { clearingHouseABI } from '../abi/ClearingHouse'
 import { INTERVALS } from '../constants'
 import { verifyingContract } from '../env'
 import { ansiColorWrap, logger } from '../logger'
-import { baseClient, loadMarkets } from '../markets'
+import { baseClient, loadMarkets, walletClient } from '../markets'
 import { addPerfToInstance, addPerfToStatics, formatTime } from '../monitoring'
 import { checkDeleteSignature, checkOrderSignature } from '../signing'
+import type { Market, MarketId, OrderStatus } from '../types'
 import {
 	type AccountId,
 	type HexString,
 	type LimitOrder,
 	type LimitOrderRaw,
+	ORDER_STATUSES,
 	OrderType,
 } from '../types'
-import type { Market, MarketId } from '../types'
 import { marketSide } from '../utils'
 import { emitters } from './events'
 import { Nonce } from './nonce'
 
 type Book = {
 	orders: LimitOrder[]
+}
+
+type PendingSettlement = {
+	orders: string[]
+	retryCount: number
+	txHash?: Hash
 }
 
 export class MatchingEngine {
@@ -47,6 +54,8 @@ export class MatchingEngine {
 	 * Set to true after a persistBook call
 	 */
 	// private bookInSync = false
+
+	private pendingSettlements: Map<string, PendingSettlement> = new Map()
 
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
@@ -173,6 +182,7 @@ export class MatchingEngine {
 			...orderData,
 			id,
 			timestamp: currentTimestamp,
+			status: ORDER_STATUSES.ACTIVE,
 		}
 		await this.checkOrderIsValidOrFail(orderWithId)
 
@@ -222,12 +232,18 @@ export class MatchingEngine {
 		return id
 	}
 
-	getOrders(type: 'buy' | 'sell' | 'all' = 'all', price?: bigint): LimitOrder[] {
+	getOrders(
+		type: 'buy' | 'sell' | 'all' = 'all',
+		status: OrderStatus = ORDER_STATUSES.ACTIVE,
+		price?: bigint
+	): LimitOrder[] {
 		const getOrdersFromMap = (map: Map<bigint, Map<string, LimitOrder>>) => {
 			if (price !== undefined) {
-				return Array.from(map.get(price)?.values() ?? [])
+				return Array.from(map.get(price)?.values() ?? []).filter((order) => order.status === status)
 			}
-			return Array.from(map.values()).flatMap((priceMap) => Array.from(priceMap.values()))
+			return Array.from(map.values())
+				.flatMap((priceMap) => Array.from(priceMap.values()))
+				.filter((order) => order.status === status)
 		}
 
 		switch (type) {
@@ -242,9 +258,10 @@ export class MatchingEngine {
 
 	getOrdersWithoutSigs(
 		type: 'buy' | 'sell' | 'all' = 'all',
+		status: OrderStatus = ORDER_STATUSES.ACTIVE,
 		price?: bigint
 	): Omit<LimitOrder, 'signature'>[] {
-		const orders = this.getOrders(type, price)
+		const orders = this.getOrders(type, status, price)
 		return orders.map(({ signature, ...order }) => order)
 	}
 
@@ -297,17 +314,17 @@ export class MatchingEngine {
 
 	async pruneBook() {
 		for (const [_price, buyOrdersMap] of this.buyOrders) {
-			for (const [orderId, { order, signature }] of buyOrdersMap) {
-				if (!(await this.checkOrderIsValid({ order, signature, id: orderId }))) {
-					this.deleteOrder(orderId, signature)
+			for (const [id, { order, signature, status }] of buyOrdersMap) {
+				if (!(await this.checkOrderIsValid({ order, signature, id, status }))) {
+					this.deleteOrder(id, signature)
 				}
 			}
 		}
 
 		for (const [_price, sellOrdersMap] of this.sellOrders) {
-			for (const [orderId, { order, signature }] of sellOrdersMap) {
-				if (!(await this.checkOrderIsValid({ order, signature, id: orderId }))) {
-					this.deleteOrder(orderId, signature)
+			for (const [id, { order, signature, status }] of sellOrdersMap) {
+				if (!(await this.checkOrderIsValid({ order, signature, id, status }))) {
+					this.deleteOrder(id, signature)
 				}
 			}
 		}
@@ -316,66 +333,142 @@ export class MatchingEngine {
 		// this.bookInSync = false
 	}
 
-	async settle(buyOrder: LimitOrder, sellOrder: LimitOrder) {
-		console.log('Settlement', buyOrder, sellOrder)
+	async settle(matchedOrders: LimitOrder[]) {
+		const orderIds = matchedOrders.map((order) => order.id).sort()
+		const settlementId = keccak256(toHex(orderIds.join('-')))
+
+		if (orderIds.some((id) => this.isOrderInPendingSettlement(id))) {
+			logger.debug('Some orders are already in pending settlement')
+			return
+		}
+
+		this.pendingSettlements.set(settlementId, { orders: orderIds, retryCount: 0 })
+
+		const request = {
+			orders: matchedOrders.map((order) => order.order),
+			signatures: matchedOrders.map((order) => order.signature),
+		}
 
 		try {
 			const settlementSimulate = await baseClient.readContract({
 				address: verifyingContract,
 				abi: clearingHouseABI,
 				functionName: 'canSettle',
-				args: [
-					{
-						orders: [buyOrder.order, sellOrder.order],
-						signatures: [buyOrder.signature, sellOrder.signature],
-					},
-				],
+				args: [request],
 			})
 
-			console.log({
-				success: settlementSimulate.success,
-				data: fromHex(settlementSimulate.data, 'string'),
-			})
-		} catch (e) {
-			console.dir(e, { depth: Number.POSITIVE_INFINITY })
+			if (settlementSimulate.success) {
+				const settlement = await walletClient.writeContract({
+					address: verifyingContract,
+					abi: clearingHouseABI,
+					functionName: 'settle',
+					args: [request],
+				})
+
+				const receipt = await baseClient.waitForTransactionReceipt({
+					hash: settlement,
+				})
+
+				if (receipt.status !== 'success') {
+					throw new Error('Settlement failed')
+				}
+
+				logger.info(`Settlement ${settlementId} successful. Transaction hash: ${settlement}`)
+
+				for (const order of matchedOrders) {
+					await this.updateOrderStatus(order.id, 'executed', settlement)
+				}
+
+				this.pendingSettlements.delete(settlementId)
+			} else {
+				throw new Error(fromHex(settlementSimulate.data, 'string'))
+			}
+		} catch (e: unknown) {
+			logger.error(
+				`Settlement ${settlementId} failed: ${e instanceof Error ? e.message : 'Unknown error'}`
+			)
+			const pendingSettlement = this.pendingSettlements.get(settlementId)!
+
+			if (pendingSettlement.retryCount < 1) {
+				pendingSettlement.retryCount++
+				this.pendingSettlements.set(settlementId, pendingSettlement)
+				setTimeout(() => this.settle(matchedOrders), 5000)
+			} else {
+				for (const orderId of pendingSettlement.orders) {
+					await this.markOrderAsFailed(orderId)
+				}
+				this.pendingSettlements.delete(settlementId)
+			}
 		}
 	}
 
-	async checkForPossibleSettles() {
-		// if (this.bookClean) return
+	private isOrderInPendingSettlement(orderId: string): boolean {
+		for (const settlement of this.pendingSettlements.values()) {
+			if (settlement.orders.includes(orderId)) {
+				return true
+			}
+		}
+		return false
+	}
 
-		const matchingOrders: { buy: LimitOrder[]; sell: LimitOrder[] }[] = []
+	private async updateOrderStatus(orderId: string, status: OrderStatus, txHash?: Hash) {
+		const order = this.getOrder(orderId)
+		if (order) {
+			order.status = status
+			if (txHash) {
+				order.txHash = txHash
+			}
+		}
+	}
+
+	private async markOrderAsFailed(orderId: string) {
+		await this.updateOrderStatus(orderId, 'failed')
+	}
+
+	async checkForPossibleSettles() {
+		const matchingOrders: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
 			const sellOrdersMap = this.sellOrders.get(price)
 
 			if (sellOrdersMap) {
-				const matches = { buy: [...buyOrdersMap.values()], sell: [...sellOrdersMap.values()] }
-				matchingOrders.push(matches)
+				const activeOrders = {
+					buy: [...buyOrdersMap.values()].filter(
+						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+					),
+					sell: [...sellOrdersMap.values()].filter(
+						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+					),
+				}
+
+				if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
+					const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
+					matchingOrders.push(...matchedOrders)
+				}
 			}
 		}
 
-		for (const matches of matchingOrders) {
-			const { buy, sell } = matches
-			buy.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
-			sell.sort((a, b) => Number(a.order.metadata.genesis! - b.order.metadata.genesis!))
-
-			const totalToSettle = Math.min(buy.length, sell.length)
-
-			for (let i = 0; i < totalToSettle; i++) {
-				const buyOrder = buy[i]
-				const sellOrder = sell[i]
-				await this.settle(buyOrder!, sellOrder!)
-			}
+		for (const orders of matchingOrders) {
+			await this.settle(orders)
 		}
-
-		// TODO: Decide how we order the matching
-
-		// Pair up orders, then recheck for settles
 
 		this.pruneBook()
 
 		return matchingOrders
+	}
+
+	private matchOrders(buyOrders: LimitOrder[], sellOrders: LimitOrder[]): LimitOrder[][] {
+		const matches: LimitOrder[][] = []
+		let buyIndex = 0
+		let sellIndex = 0
+
+		while (buyIndex < buyOrders.length && sellIndex < sellOrders.length) {
+			matches.push([buyOrders[buyIndex]!, sellOrders[sellIndex]!])
+			buyIndex++
+			sellIndex++
+		}
+
+		return matches
 	}
 
 	private static engines = new Map<MarketId, MatchingEngine>()
