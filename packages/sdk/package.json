@@ -35,6 +35,9 @@
 		"dts-bundle-generator": "^9.5.1",
 		"viem": "^2.21.6"
 	},
+	"peerDependencies": {
+		"viem": "^2.21.6"
+	},
 	"devDependencies": {
 		"hono": "^4.5.9",
 		"orderbook-backend": "workspace:*",
