@@ -28,7 +28,7 @@
 		},
 		"./schemas": {
 			"types": "./src/schemas.d.ts",
-			"default": "./dist/schemas.js"
+			"default": "./dist/schemas/index.js"
 		},
 		"./routes": {
 			"types": "./src/routes/index.d.ts",
