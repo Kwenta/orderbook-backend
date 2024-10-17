@@ -1,4 +1,4 @@
-import type { Hash } from 'viem'
+import type { Hash, Hex } from 'viem'
 import type { ZodBigInt, ZodEffects, ZodNumber, ZodString, ZodUnion, z } from 'zod'
 import type {
 	conditionSchema,
@@ -8,7 +8,7 @@ import type {
 	traderSchema,
 } from './schemas'
 
-export type Market = { id: uint[128]; symbol: string }
+export type Market = { id: uint[128]; symbol: string; pythId: Hex }
 export type MarketId = Market['id']
 
 export type SupportedChains = 8453

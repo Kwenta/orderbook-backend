@@ -1,11 +1,13 @@
 import { randomBytes } from 'node:crypto'
 import type { EventEmitter } from 'node:events'
 import type { Worker } from 'node:worker_threads'
+import { HermesClient, type PriceUpdate } from '@pythnetwork/hermes-client'
+import type EventSource from 'eventsource'
 import { HTTPException } from 'hono/http-exception'
 import { type Hash, fromHex, keccak256, toHex } from 'viem'
 import { clearingHouseABI } from '../abi/ClearingHouse'
 import { INTERVALS } from '../constants'
-import { verifyingContract } from '../env'
+import { pythUrl, verifyingContract } from '../env'
 import { ansiColorWrap, logger } from '../logger'
 import { baseClient, loadMarkets, walletClient } from '../markets'
 import { addPerfToInstance, addPerfToStatics, formatTime } from '../monitoring'
@@ -74,6 +76,8 @@ export class MatchingEngine {
 
 	private pendingSettlements: Map<string, PendingSettlement> = new Map()
 
+	private stream: EventSource | undefined
+
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
 		this.sellOrders = new Map()
@@ -114,7 +118,51 @@ export class MatchingEngine {
 		logger.debug(`Loaded book ${this.market.id}, ${book.orders.length} orders`)
 
 		for (const order of book.orders) this.addOrderUnsafe(order)
-		for(const stop of book.stops) this.addStopOrder(stop)
+		for (const stop of book.stops) this.addStopOrder(stop)
+	}
+
+	async initPyth() {
+		this.stream = await MatchingEngine.pyth.getPriceUpdatesStream([this.market.pythId], {
+			parsed: true,
+			allowUnordered: false,
+			benchmarksOnly: true,
+		})
+
+		if (!this.stream) {
+			throw new Error('Failed to initialize Pyth stream')
+		}
+
+		this.stream.onmessage = (event) => {
+			try {
+				const parsedEvent = JSON.parse(event.data) as {
+					parsed: PriceUpdate['parsed']
+					binary: PriceUpdate['binary']
+				}
+
+				if (!parsedEvent || !parsedEvent.parsed) return
+
+				const { price } = parsedEvent.parsed[0] || {}
+
+				if (price) {
+					const formattedPrice = BigInt(10) ** BigInt(18 + price.expo) * BigInt(price.price)
+					this.processStops(formattedPrice)
+				}
+			} catch (error) {
+				logger.error(`Error handling price update event for ${this.market.symbol}`, error)
+			}
+		}
+
+		this.stream.onerror = (error) => {
+			logger.error(`Error handling price update event for ${this.market.symbol}`, error)
+
+			this.stream?.close()
+			this.stream = undefined
+
+			setTimeout(() => {
+				// Reconnect after 5 seconds
+				this.initPyth()
+			}, 5_000)
+		}
 	}
 
 	persistBook() {
@@ -136,17 +184,18 @@ export class MatchingEngine {
 		this.onChainClosed = true
 	}
 
-	async processStops() {
-		const priceOfMarket = 1 // this.market.price
+	async processStops(price: bigint) {
+		const priceOfMarket = price
+		logger.debug(`Processing stops for ${this.market.symbol} at price ${priceOfMarket}`)
 
-		for(const [priceOfStop, priceMap] of this.buyStops) {
-			if(priceOfStop < priceOfMarket) {
-				for(const [orderId, order] of priceMap) {
-					if(order.order.trade.t === OrderType.STOP) {
-						order.stopped = true;
+		for (const [priceOfStop, priceMap] of this.buyStops) {
+			if (priceOfStop < priceOfMarket) {
+				for (const [orderId, order] of priceMap) {
+					if (order.order.trade.t === OrderType.STOP) {
+						order.stopped = true
 						await this.marketOrder(order)
 					} else {
-						order.stopped = true;
+						order.stopped = true
 						this.addOrderUnsafe(order)
 					}
 					priceMap.delete(orderId)
@@ -154,14 +203,14 @@ export class MatchingEngine {
 			}
 		}
 
-		for(const [priceOfStop, priceMap] of this.sellStops) {
-			if(priceOfStop > priceOfMarket) {
-				for(const [orderId, order] of priceMap) {
-					if(order.order.trade.t === OrderType.STOP) {
-						order.stopped = true;
+		for (const [priceOfStop, priceMap] of this.sellStops) {
+			if (priceOfStop > priceOfMarket) {
+				for (const [orderId, order] of priceMap) {
+					if (order.order.trade.t === OrderType.STOP) {
+						order.stopped = true
 						await this.marketOrder(order)
 					} else {
-						order.stopped = true;
+						order.stopped = true
 						this.addOrderUnsafe(order)
 					}
 					priceMap.delete(orderId)
@@ -250,12 +299,16 @@ export class MatchingEngine {
 			id,
 			timestamp: currentTimestamp,
 			status: ORDER_STATUSES.ACTIVE,
-			stopped: false
+			stopped: false,
 		}
 		await this.checkOrderIsValidOrFail(orderWithId)
 
-		if(orderWithId.order.trade.t === OrderType.STOP || orderWithId.order.trade.t === OrderType.STOP_LIMIT) { // Was a stop, now is a market or limit
-			if(orderWithId.stopped) {
+		if (
+			orderWithId.order.trade.t === OrderType.STOP ||
+			orderWithId.order.trade.t === OrderType.STOP_LIMIT
+		) {
+			// Was a stop, now is a market or limit
+			if (orderWithId.stopped) {
 				switch (orderWithId.order.trade.t) {
 					case OrderType.STOP:
 						await this.marketOrder(orderWithId)
@@ -265,7 +318,7 @@ export class MatchingEngine {
 						break
 				}
 			}
-			return id;
+			return id
 		}
 
 		switch (orderWithId.order.trade.t) {
@@ -545,15 +598,16 @@ export class MatchingEngine {
 	}
 
 	async checkForPossibleSettles() {
-    // Don't check for settles if there have been on updates since last check
+		// Don't check for settles if there have been on updates since last check
 		if (this.bookClean) return
 		const matchingOrders: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
+			const pricesBelow = Array.from(this.sellOrders.keys()).filter(
+				(sellPrice) => sellPrice <= price
+			)
 
-			const pricesBelow = Array.from(this.sellOrders.keys()).filter((sellPrice) => sellPrice <= price)
-
-			for(const sellPrice of pricesBelow) {
+			for (const sellPrice of pricesBelow) {
 				const sellOrdersMap = this.sellOrders.get(sellPrice)
 				if (sellOrdersMap) {
 					const activeOrders = {
@@ -601,6 +655,8 @@ export class MatchingEngine {
 
 	private static worker?: Worker
 
+	private static pyth = new HermesClient(pythUrl)
+
 	static findOrFail(marketId?: MarketId) {
 		if (!marketId) throw new HTTPException(400, { message: 'The market was not provided' })
 
@@ -639,6 +695,7 @@ export class MatchingEngine {
 			if (!MatchingEngine.engines.has(market.id)) {
 				const engine = new MatchingEngine(market)
 				await engine.initBookFromDB()
+				await engine.initPyth()
 				MatchingEngine.engines.set(market.id, engine)
 				marketsThatGotCreated.push(market)
 			}
