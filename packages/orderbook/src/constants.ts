@@ -47,6 +47,72 @@ export const marketProxyABI = [
 		type: 'function',
 		stateMutability: 'view',
 	},
+	{
+		inputs: [
+			{
+				internalType: 'uint128',
+				name: 'marketId',
+				type: 'uint128',
+			},
+			{
+				internalType: 'uint256',
+				name: 'strategyId',
+				type: 'uint256',
+			},
+		],
+		name: 'getSettlementStrategy',
+		outputs: [
+			{
+				components: [
+					{
+						internalType: 'enum SettlementStrategy.Type',
+						name: 'strategyType',
+						type: 'uint8',
+					},
+					{
+						internalType: 'uint256',
+						name: 'settlementDelay',
+						type: 'uint256',
+					},
+					{
+						internalType: 'uint256',
+						name: 'settlementWindowDuration',
+						type: 'uint256',
+					},
+					{
+						internalType: 'address',
+						name: 'priceVerificationContract',
+						type: 'address',
+					},
+					{
+						internalType: 'bytes32',
+						name: 'feedId',
+						type: 'bytes32',
+					},
+					{
+						internalType: 'uint256',
+						name: 'settlementReward',
+						type: 'uint256',
+					},
+					{
+						internalType: 'bool',
+						name: 'disabled',
+						type: 'bool',
+					},
+					{
+						internalType: 'uint256',
+						name: 'commitmentPriceDelay',
+						type: 'uint256',
+					},
+				],
+				internalType: 'struct SettlementStrategy.Data',
+				name: 'settlementStrategy',
+				type: 'tuple',
+			},
+		],
+		stateMutability: 'view',
+		type: 'function',
+	},
 ] as const
 
 export const ONE_DAY = 24 * 60 * 60 * 1000

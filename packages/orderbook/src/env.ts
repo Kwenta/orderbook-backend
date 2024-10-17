@@ -17,3 +17,5 @@ export const chainId = Number.parseInt(process.env.CHAIN_ID ?? '8453') as Suppor
 export const verifyingContract = (process.env.CONTRACT_ADDRESS ?? zeroAddress) as Address
 export const domainVersion = process.env.domainVersion ?? '1'
 export const domainName = process.env.domainName ?? 'Mock Clearinghouse'
+
+export const pythUrl = process.env.PYTH_URL ?? 'https://hermes.pyth.network/'
