@@ -293,12 +293,33 @@ export class MatchingEngine {
 
 	async marketOrder(order: LimitOrder) {
 		logger.debug(`Market order for ${this.market.symbol}`)
-		this.addOrderUnsafe(order)
-		await this.checkForPossibleSettles()
-		const onBook = this.getOrder(order.id)
 
-		if (onBook) {
-			this.deleteOrder(order.id, order.signature)
+		if(marketSide(order.order) === 'buy') {
+			const sellPrices = Array.from(this.sellOrders.keys()).sort()
+			const lowestSell = sellPrices[0]!
+
+			const sellOrders = this.sellOrders.get(lowestSell)
+			if (!sellOrders) return
+
+			const sellOrder = sellOrders.values().next().value
+			if (!sellOrder) return
+
+			const matchedOrders = this.matchOrders([order], [sellOrder])
+			await this.settle(matchedOrders[0])
+		}
+
+		if(marketSide(order.order) === 'sell') {
+			const buyPrices = Array.from(this.buyOrders.keys()).sort()
+			const highestBuy = buyPrices[buyPrices.length - 1]!
+
+			const buyOrders = this.buyOrders.get(highestBuy)
+			if (!buyOrders) return
+
+			const buyOrder = buyOrders.values().next().value
+			if (!buyOrder) return
+
+			const matchedOrders = this.matchOrders([buyOrder], [order])
+			await this.settle(matchedOrders[0])
 		}
 	}
 
