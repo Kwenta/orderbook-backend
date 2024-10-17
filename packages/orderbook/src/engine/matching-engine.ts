@@ -127,7 +127,7 @@ export class MatchingEngine {
 		MatchingEngine.worker?.postMessage(
 			JSON.stringify({ type: 'book', data: { marketId: this.market.id, orders, stops } })
 		)
-		// this.bookInSync = true
+		this.bookInSync = true
 		return true
 	}
 
