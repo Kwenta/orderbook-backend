@@ -4,7 +4,7 @@ import * as viem from 'viem'
 import type {
 	BytesSizes,
 	HexString,
-	Sizes,
+	IntSizes,
 	ZodBytes,
 	ZodInt,
 	ZodUint,
@@ -33,7 +33,7 @@ const bytesSchema = (n: BytesSizes = 32, description?: string): ZodBytes<keyof b
 	return hexString(n, true, description) as ZodBytes<keyof bytes>
 }
 
-const uintSchema = (n: Sizes = 256, description?: string): ZodUint<keyof uint> => {
+const uintSchema = (n: IntSizes = 256, description?: string): ZodUint<keyof uint> => {
 	if (n < 0 || n > 256) throw new Error('Invalid uint size')
 	const maxValue = viem[`maxUint${n}`]
 	const schema = z
@@ -47,7 +47,7 @@ const uintSchema = (n: Sizes = 256, description?: string): ZodUint<keyof uint> =
 	return description ? schema.describe(description) : schema
 }
 
-const intSchema = (n: Sizes = 256, description?: string): ZodInt<keyof int> => {
+const intSchema = (n: IntSizes = 256, description?: string): ZodInt<keyof int> => {
 	if (n < 0 || n > 256) throw new Error('Invalid uint size')
 	const maxValue = viem[`maxInt${n}`]
 	const minValue = viem[`minInt${n}`]

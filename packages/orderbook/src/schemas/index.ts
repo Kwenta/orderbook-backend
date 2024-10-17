@@ -78,6 +78,12 @@ export const marketSchema = z
 	.object({ id: marketId, symbol: z.string().describe('The symbol for the asset of the market') })
 	.openapi('Market')
 export const marketsSchema = z.array(marketSchema).openapi('Markets')
+export const apiMetaSchema = z.object({
+	chainId: solidity.uint256('The unique identifier of the chain'),
+	verifyingContract: solidity.address('The address of the verifying contract'),
+	name: z.string().describe('The name of the domain'),
+	version: z.string().describe('The version of the domain'),
+})
 export const userNonceSchema = z
 	.object({
 		nonce: solidity.uint256('The unique order identifier for a given account'),

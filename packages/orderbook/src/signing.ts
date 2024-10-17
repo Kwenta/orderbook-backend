@@ -1,4 +1,5 @@
 import { checksumAddress, hashTypedData, recoverTypedDataAddress } from 'viem'
+import { chainId, domainName, domainVersion, verifyingContract } from './env'
 import type { Order as FullOrder, HexString, LimitOrder, int } from './types'
 
 export const orderTypes = {
@@ -34,10 +35,10 @@ export const orderTypes = {
 } as const
 
 export const domain = {
-	chainId: 8453,
-	verifyingContract: '0x4219606c11dee683aa0ae395e481f841ca942371',
-	name: 'Mock Clearinghouse',
-	version: '1',
+	chainId,
+	verifyingContract,
+	name: domainName,
+	version: domainVersion,
 } as const
 
 const typedData = (order: FullOrder) =>

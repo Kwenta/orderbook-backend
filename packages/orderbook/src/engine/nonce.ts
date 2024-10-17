@@ -11,6 +11,9 @@ type DBNonce = {
 	last_seen: string
 }
 
+/**
+ * Class for tracking the nonce of all users on the orderbook system
+ */
 export class Nonce {
 	static get(user: AccountId) {
 		return Nonce.nonces.get(user) ?? new Nonce(user)
