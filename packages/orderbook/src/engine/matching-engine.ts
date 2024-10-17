@@ -4,7 +4,7 @@ import type { Worker } from 'node:worker_threads'
 import { HermesClient, type PriceUpdate } from '@pythnetwork/hermes-client'
 import type EventSource from 'eventsource'
 import { HTTPException } from 'hono/http-exception'
-import { type Hash, fromHex, keccak256, toHex } from 'viem'
+import { type Hash, formatEther, fromHex, keccak256, toHex } from 'viem'
 import { clearingHouseABI } from '../abi/ClearingHouse'
 import { INTERVALS } from '../constants'
 import { pythUrl, verifyingContract } from '../env'
@@ -186,7 +186,12 @@ export class MatchingEngine {
 
 	async processStops(price: bigint) {
 		const priceOfMarket = price
-		logger.debug(`Processing stops for ${this.market.symbol} at price ${priceOfMarket}`)
+
+		if (this.market.id === BigInt(200)) {
+			logger.debug(
+				`Processing stops for ${this.market.symbol} at price ${formatEther(priceOfMarket)}. Stops length: ${this.buyStops.size} + ${this.sellStops.size}`
+			)
+		}
 
 		for (const [priceOfStop, priceMap] of this.buyStops) {
 			if (priceOfStop < priceOfMarket) {
@@ -199,6 +204,10 @@ export class MatchingEngine {
 						this.addOrderUnsafe(order)
 					}
 					priceMap.delete(orderId)
+				}
+
+				if (priceMap.size === 0) {
+					this.buyStops.delete(priceOfStop)
 				}
 			}
 		}
@@ -215,6 +224,10 @@ export class MatchingEngine {
 					}
 					priceMap.delete(orderId)
 				}
+			}
+
+			if (priceMap.size === 0) {
+				this.sellStops.delete(priceOfStop)
 			}
 		}
 	}
@@ -279,7 +292,9 @@ export class MatchingEngine {
 	}
 
 	async marketOrder(order: LimitOrder) {
+		logger.debug(`Market order for ${this.market.symbol}`)
 		this.addOrderUnsafe(order)
+		await this.checkForPossibleSettles()
 		const onBook = this.getOrder(order.id)
 
 		if (onBook) {
@@ -317,8 +332,8 @@ export class MatchingEngine {
 						this.addOrderUnsafe(orderWithId)
 						break
 				}
+				return id
 			}
-			return id
 		}
 
 		switch (orderWithId.order.trade.t) {
@@ -373,6 +388,8 @@ export class MatchingEngine {
 
 		orderMap.get(price)?.set(id, orderData)
 		this.orderIdToPrice.set(id, price)
+
+		logger.debug(`Added order to ${this.market.symbol} at price ${formatEther(price)}`)
 
 		this.bookClean = false
 		this.bookInSync = false
@@ -446,7 +463,7 @@ export class MatchingEngine {
 
 	getOrderWithoutSig(orderId: string): Omit<LimitOrder, 'signature'> | undefined {
 		const order = this.getOrder(orderId)
-		if (!order) return undefined
+		if (!order) throw new HTTPException(404, { message: 'Order not found' })
 
 		const { signature, ...orderWithoutSig } = order
 		return orderWithoutSig
@@ -462,6 +479,22 @@ export class MatchingEngine {
 		this.addOrder(newOrder)
 	}
 
+	private deleteOrderUnsafe(order: LimitOrder) {
+		const price = this.orderIdToPrice.get(order.id)
+
+		if (!price) throw new Error('Price not found')
+
+		const orderMap = marketSide(order.order) === 'buy' ? this.buyOrders : this.sellOrders
+		orderMap.get(price)?.delete(order.id)
+		if (orderMap.get(price)?.size === 0) {
+			orderMap.delete(price)
+		}
+		this.orderIdToPrice.delete(order.id)
+
+		this.bookClean = false
+		this.bookInSync = false
+	}
+
 	async deleteOrder(orderId: string, signature: HexString) {
 		logger.debug(`Deleting order ${orderId} on market ${this.market.id}`)
 		const order = this.getOrder(orderId)
@@ -471,17 +504,7 @@ export class MatchingEngine {
 
 		await checkDeleteSignature({ ...order, signature })
 
-		const price = this.orderIdToPrice.get(orderId)
-		if (!price) throw new Error('Price not found')
-		const orderMap = marketSide(order.order) === 'buy' ? this.buyOrders : this.sellOrders
-		orderMap.get(price)?.delete(orderId)
-		if (orderMap.get(price)?.size === 0) {
-			orderMap.delete(price)
-		}
-		this.orderIdToPrice.delete(orderId)
-
-		this.bookClean = false
-		this.bookInSync = false
+		this.deleteOrderUnsafe(order)
 	}
 
 	async pruneBook() {
@@ -586,6 +609,11 @@ export class MatchingEngine {
 	private async updateOrderStatus(orderId: string, status: OrderStatus, txHash?: Hash) {
 		const order = this.getOrder(orderId)
 		if (order) {
+			if (status === ORDER_STATUSES.EXECUTED) {
+				this.deleteOrderUnsafe(order)
+				return
+			}
+
 			order.status = status
 			if (txHash) {
 				order.txHash = txHash
@@ -680,9 +708,9 @@ export class MatchingEngine {
 
 		const time = end - start
 
-		logger.info(
-			`Persisted ${ansiColorWrap(changed.length, 'green')}:${ansiColorWrap(unchanged.length, 'red')} market changes, took ${formatTime(time)}`
-		)
+		// logger.info(
+		// 	`Persisted ${ansiColorWrap(changed.length, 'green')}:${ansiColorWrap(unchanged.length, 'red')} market changes, took ${formatTime(time)}`
+		// )
 
 		setTimeout(MatchingEngine.persistAll, INTERVALS.PERSIST_ALL_BOOKS)
 	}
