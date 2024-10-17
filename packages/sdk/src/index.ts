@@ -2,8 +2,9 @@ import KwentaSDK from '@kwenta/sdk'
 import { SnxV3NetworkIds, SupportedNetworkIds } from '@kwenta/sdk/types'
 import { hc } from 'hono/client'
 import type { AppRouter } from 'orderbook-backend/routes'
+import { solidity } from 'orderbook-backend/schemas'
 import { domain, orderTypes } from 'orderbook-backend/signing'
-import { OrderType } from 'orderbook-backend/types'
+import { type Order, OrderType } from 'orderbook-backend/types'
 import {
 	http,
 	type HttpTransport,
@@ -71,29 +72,110 @@ export class OrderbookSDK {
 		return this.accountId
 	}
 
-	async getMarkets() {
+	async getMarkets(): Promise<{ id: bigint; symbol: string }[]> {
 		const response = await this.client.markets.$get({ query: {} })
 
-		return response.json()
+		if (response.status !== 200) {
+			throw new Error('Failed to get markets')
+		}
+
+		const res = await response.json()
+
+		return res.map((market) => ({
+			id: solidity.uint128().parse(market.id),
+			symbol: market.symbol,
+		}))
 	}
 
-	async getMarket(id: bigint) {
+	async getMarket(id: bigint): Promise<{ id: bigint; symbol: string }> {
 		const response = await this.client.markets.$get({ query: { marketId: id.toString() } })
-		return response.json()
+
+		if (response.status !== 200) {
+			throw new Error('Failed to get market')
+		}
+
+		const res = await response.json()
+
+		const market = res[0]
+
+		if (!market) {
+			throw new Error('Market not found')
+		}
+
+		return {
+			id: solidity.uint128().parse(market.id),
+			symbol: market.symbol,
+		}
 	}
 
-	async getOrders(marketId: bigint) {
+	async getOrders(marketId: bigint): Promise<{ id: string; order: Order }[]> {
 		const response = await this.client.orders[':marketId'].$get({
 			param: { marketId: marketId.toString() },
 		})
-		return response.json()
+
+		if (response.status !== 200) {
+			throw new Error('Failed to get orders')
+		}
+
+		const res = await response.json()
+
+		return res.map(({ id, order }) => ({
+			id,
+			order: {
+				metadata: {
+					...order.metadata,
+					genesis: solidity.uint256().parse(order.metadata.genesis),
+					expiration: solidity.uint256().parse(order.metadata.expiration),
+				},
+				trader: {
+					...order.trader,
+					nonce: solidity.uint256().parse(order.trader.nonce),
+					accountId: solidity.uint128().parse(order.trader.accountId),
+				},
+				trade: {
+					...order.trade,
+					marketId: solidity.uint128().parse(order.trade.marketId),
+					size: solidity.int128().parse(order.trade.size),
+					price: solidity.uint256().parse(order.trade.price),
+				},
+				conditions: order.conditions,
+			},
+		}))
 	}
 
-	async getOrder(marketId: bigint, orderId: string) {
+	async getOrder(marketId: bigint, orderId: string): Promise<{ id: string; order: Order }> {
 		const response = await this.client.orders[':marketId'][':orderId'].$get({
 			param: { marketId: marketId.toString(), orderId },
 		})
-		return response.json()
+
+		if (response.status !== 200) {
+			throw new Error('Failed to get order')
+		}
+
+		const { id, order } = await response.json()
+
+		return {
+			id,
+			order: {
+				metadata: {
+					...order.metadata,
+					genesis: solidity.uint256().parse(order.metadata.genesis),
+					expiration: solidity.uint256().parse(order.metadata.expiration),
+				},
+				trader: {
+					...order.trader,
+					nonce: solidity.uint256().parse(order.trader.nonce),
+					accountId: solidity.uint128().parse(order.trader.accountId),
+				},
+				trade: {
+					...order.trade,
+					marketId: solidity.uint128().parse(order.trade.marketId),
+					size: solidity.int128().parse(order.trade.size),
+					price: solidity.uint256().parse(order.trade.price),
+				},
+				conditions: order.conditions,
+			},
+		}
 	}
 
 	private async getOrderParameters() {
@@ -201,7 +283,6 @@ export class OrderbookSDK {
 			json: {
 				order: formattedOrder,
 				signature,
-				// user: this.account.address,
 			},
 		})
 
