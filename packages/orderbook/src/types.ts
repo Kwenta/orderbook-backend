@@ -109,4 +109,5 @@ export type LimitOrder = LimitOrderRaw & {
 	timestamp?: bigint
 	status: OrderStatus
 	txHash?: Hash
+	stopped: boolean
 }

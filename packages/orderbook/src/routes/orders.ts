@@ -139,7 +139,7 @@ export const orderRouter = new OpenAPIHono()
 		)
 
 		const engine = MatchingEngine.findOrFail(marketId)
-		await engine.updateOrder({ ...newOrder, id: orderId, status: ORDER_STATUSES.ACTIVE })
+		await engine.updateOrder({ ...newOrder, id: orderId, status: ORDER_STATUSES.ACTIVE, stopped: false })
 
 		return c.json({ success: true }, 200)
 	})
