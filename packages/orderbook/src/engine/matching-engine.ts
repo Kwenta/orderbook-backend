@@ -568,8 +568,8 @@ export class MatchingEngine {
 					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
 						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
 						matchingOrders.push(...matchedOrders)
+						break
 					}
-					break;
 				}
 			}
 		}
