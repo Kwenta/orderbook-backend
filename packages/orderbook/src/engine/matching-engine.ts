@@ -25,6 +25,7 @@ import { Nonce } from './nonce'
 
 type Book = {
 	orders: LimitOrder[]
+	stops: LimitOrder[]
 }
 
 type PendingSettlement = {
@@ -46,6 +47,10 @@ export class MatchingEngine {
 
 	private buyOrders: Map<bigint, Map<string, LimitOrder>>
 	private sellOrders: Map<bigint, Map<string, LimitOrder>>
+
+	private buyStops: Map<bigint, Map<string, LimitOrder>>
+	private sellStops: Map<bigint, Map<string, LimitOrder>>
+
 	private orderIdToPrice: Map<string, bigint>
 
 	/**
@@ -72,6 +77,10 @@ export class MatchingEngine {
 	constructor(public readonly market: Market) {
 		this.buyOrders = new Map()
 		this.sellOrders = new Map()
+
+		this.buyStops = new Map()
+		this.sellStops = new Map()
+
 		this.orderIdToPrice = new Map()
 		this.eventEmitter = emitters.get(market.id)!
 
@@ -105,6 +114,7 @@ export class MatchingEngine {
 		logger.debug(`Loaded book ${this.market.id}, ${book.orders.length} orders`)
 
 		for (const order of book.orders) this.addOrderUnsafe(order)
+		for(const stop of book.stops) this.addStopOrder(stop)
 	}
 
 	persistBook() {
@@ -112,17 +122,52 @@ export class MatchingEngine {
 		if (this.bookInSync) return false
 		// TODO: Ensure ordering of orders array
 		const orders = [...this.getOrders('all')]
+		const stops = [...this.getStops('all')]
 
 		MatchingEngine.worker?.postMessage(
-			JSON.stringify({ type: 'book', data: { marketId: this.market.id, orders } })
+			JSON.stringify({ type: 'book', data: { marketId: this.market.id, orders, stops } })
 		)
-		// this.bookInSync = true
+		this.bookInSync = true
 		return true
 	}
 
 	close() {
 		this.persistBook()
 		this.onChainClosed = true
+	}
+
+	async processStops() {
+		const priceOfMarket = 1 // this.market.price
+
+		for(const [priceOfStop, priceMap] of this.buyStops) {
+			if(priceOfStop < priceOfMarket) {
+				for(const [orderId, order] of priceMap) {
+					if(order.order.trade.t === OrderType.STOP) {
+						order.stopped = true;
+						await this.marketOrder(order)
+					} else {
+						order.stopped = true;
+						this.addOrderUnsafe(order)
+					}
+					priceMap.delete(orderId)
+				}
+			}
+		}
+
+		for(const [priceOfStop, priceMap] of this.sellStops) {
+			if(priceOfStop > priceOfMarket) {
+				for(const [orderId, order] of priceMap) {
+					if(order.order.trade.t === OrderType.STOP) {
+						order.stopped = true;
+						await this.marketOrder(order)
+					} else {
+						order.stopped = true;
+						this.addOrderUnsafe(order)
+					}
+					priceMap.delete(orderId)
+				}
+			}
+		}
 	}
 
 	removeUserOrders(user: AccountId) {
@@ -184,6 +229,15 @@ export class MatchingEngine {
 		return true
 	}
 
+	async marketOrder(order: LimitOrder) {
+		this.addOrderUnsafe(order)
+		const onBook = this.getOrder(order.id)
+
+		if (onBook) {
+			this.deleteOrder(order.id, order.signature)
+		}
+	}
+
 	async addOrder(orderData: LimitOrderRaw) {
 		logger.debug(`Adding order to market ${this.market.id} of type ${orderData.order.trade.t}`)
 		if (this.onChainClosed) throw new Error('Market is closed')
@@ -196,23 +250,35 @@ export class MatchingEngine {
 			id,
 			timestamp: currentTimestamp,
 			status: ORDER_STATUSES.ACTIVE,
+			stopped: false
 		}
 		await this.checkOrderIsValidOrFail(orderWithId)
 
+		if(orderWithId.order.trade.t === OrderType.STOP || orderWithId.order.trade.t === OrderType.STOP_LIMIT) { // Was a stop, now is a market or limit
+			if(orderWithId.stopped) {
+				switch (orderWithId.order.trade.t) {
+					case OrderType.STOP:
+						await this.marketOrder(orderWithId)
+						break
+					case OrderType.STOP_LIMIT:
+						this.addOrderUnsafe(orderWithId)
+						break
+				}
+			}
+			return id;
+		}
+
 		switch (orderWithId.order.trade.t) {
 			case OrderType.LIMIT:
+				this.addOrderUnsafe(orderWithId)
+				break
 			case OrderType.STOP:
 			case OrderType.STOP_LIMIT:
-				this.addOrderUnsafe(orderWithId)
+				this.addStopOrder(orderWithId)
 				break
 			case OrderType.MARKET: {
 				// Attempt to settle immediately, do not persist
-				this.addOrderUnsafe(orderWithId)
-				const onBook = this.getOrder(id)
-
-				if (onBook) {
-					this.deleteOrder(id, orderData.signature)
-				}
+				await this.marketOrder(orderWithId)
 				break
 			}
 			default:
@@ -225,6 +291,22 @@ export class MatchingEngine {
 
 		await this.checkForPossibleSettles()
 		return id
+	}
+
+	private addStopOrder(orderData: LimitOrder) {
+		const { order, id } = orderData
+		const price = order.trade.price
+
+		const orderMap = marketSide(order) === 'buy' ? this.buyStops : this.sellStops
+		if (!orderMap.has(price)) {
+			orderMap.set(price, new Map())
+		}
+
+		orderMap.get(price)?.set(id, orderData)
+		this.orderIdToPrice.set(id, price)
+
+		this.bookClean = false
+		this.bookInSync = false
 	}
 
 	private addOrderUnsafe(orderData: LimitOrder) {
@@ -266,6 +348,30 @@ export class MatchingEngine {
 				return getOrdersFromMap(this.sellOrders)
 			case 'all':
 				return [...getOrdersFromMap(this.buyOrders), ...getOrdersFromMap(this.sellOrders)]
+		}
+	}
+
+	getStops(
+		type: 'buy' | 'sell' | 'all' = 'all',
+		status: OrderStatus = ORDER_STATUSES.ACTIVE,
+		price?: bigint
+	): LimitOrder[] {
+		const getOrdersFromMap = (map: Map<bigint, Map<string, LimitOrder>>) => {
+			if (price !== undefined) {
+				return Array.from(map.get(price)?.values() ?? []).filter((order) => order.status === status)
+			}
+			return Array.from(map.values())
+				.flatMap((priceMap) => Array.from(priceMap.values()))
+				.filter((order) => order.status === status)
+		}
+
+		switch (type) {
+			case 'buy':
+				return getOrdersFromMap(this.buyStops)
+			case 'sell':
+				return getOrdersFromMap(this.sellStops)
+			case 'all':
+				return [...getOrdersFromMap(this.buyStops), ...getOrdersFromMap(this.sellStops)]
 		}
 	}
 
@@ -327,16 +433,16 @@ export class MatchingEngine {
 
 	async pruneBook() {
 		for (const [_price, buyOrdersMap] of this.buyOrders) {
-			for (const [id, { order, signature, status }] of buyOrdersMap) {
-				if (!(await this.checkOrderIsValid({ order, signature, id, status }))) {
+			for (const [id, { order, signature, status, stopped }] of buyOrdersMap) {
+				if (!(await this.checkOrderIsValid({ order, signature, id, status, stopped }))) {
 					this.deleteOrder(id, signature)
 				}
 			}
 		}
 
 		for (const [_price, sellOrdersMap] of this.sellOrders) {
-			for (const [id, { order, signature, status }] of sellOrdersMap) {
-				if (!(await this.checkOrderIsValid({ order, signature, id, status }))) {
+			for (const [id, { order, signature, status, stopped }] of sellOrdersMap) {
+				if (!(await this.checkOrderIsValid({ order, signature, id, status, stopped }))) {
 					this.deleteOrder(id, signature)
 				}
 			}
@@ -444,21 +550,26 @@ export class MatchingEngine {
 		const matchingOrders: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
-			const sellOrdersMap = this.sellOrders.get(price)
 
-			if (sellOrdersMap) {
-				const activeOrders = {
-					buy: [...buyOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-					sell: [...sellOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-				}
+			const pricesBelow = Array.from(this.sellOrders.keys()).filter((sellPrice) => sellPrice <= price)
 
-				if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
-					const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
-					matchingOrders.push(...matchedOrders)
+			for(const sellPrice of pricesBelow) {
+				const sellOrdersMap = this.sellOrders.get(sellPrice)
+				if (sellOrdersMap) {
+					const activeOrders = {
+						buy: [...buyOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+						sell: [...sellOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+					}
+
+					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
+						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
+						matchingOrders.push(...matchedOrders)
+						break
+					}
 				}
 			}
 		}
