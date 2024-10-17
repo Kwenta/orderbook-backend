@@ -550,21 +550,26 @@ export class MatchingEngine {
 		const matchingOrders: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
-			const sellOrdersMap = this.sellOrders.get(price)
 
-			if (sellOrdersMap) {
-				const activeOrders = {
-					buy: [...buyOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-					sell: [...sellOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-				}
+			const pricesBelow = Array.from(this.sellOrders.keys()).filter((sellPrice) => sellPrice <= price)
 
-				if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
-					const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
-					matchingOrders.push(...matchedOrders)
+			for(const sellPrice of pricesBelow) {
+				const sellOrdersMap = this.sellOrders.get(sellPrice)
+				if (sellOrdersMap) {
+					const activeOrders = {
+						buy: [...buyOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+						sell: [...sellOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+					}
+
+					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
+						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
+						matchingOrders.push(...matchedOrders)
+					}
+					break;
 				}
 			}
 		}
