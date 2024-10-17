@@ -73,11 +73,11 @@ const main = async () => {
 
 		switch (data.type) {
 			case 'book': {
-				const { marketId, orders } = data.data
+				const { marketId, orders, stops } = data.data
 
 				await pool.query(
 					'INSERT INTO books (market_id, book, timestamp) VALUES ($1, $2, $3) ON CONFLICT (market_id) DO UPDATE SET book = EXCLUDED.book, timestamp = EXCLUDED.timestamp',
-					[marketId, JSON.stringify(orders), new Date()]
+					[marketId, JSON.stringify({orders, stops}), new Date()]
 				)
 				// workerLogger.info(`Got book for market ${marketId} with ${orders.length} orders`)
 				break
@@ -103,8 +103,8 @@ const main = async () => {
 			case 'load_book': {
 				const { marketId } = data.data
 				const { rows } = await pool.query('SELECT * FROM books WHERE market_id = $1', [marketId])
-				const orders = rows[0]?.book ?? []
-				parentPort?.postMessage(JSON.stringify({ type: 'book_init', book: { orders } }))
+				const {orders, stops} = rows[0]?.book ?? {orders: [], stops: []}
+				parentPort?.postMessage(JSON.stringify({ type: 'book_init', book: { orders, stops} }))
 				break
 			}
 			case 'load_nonces': {
