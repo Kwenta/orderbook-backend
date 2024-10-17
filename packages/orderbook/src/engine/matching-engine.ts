@@ -143,8 +143,10 @@ export class MatchingEngine {
 			if(priceOfStop < priceOfMarket) {
 				for(const [orderId, order] of priceMap) {
 					if(order.order.trade.t === OrderType.STOP) {
+						order.stopped = true;
 						await this.marketOrder(order)
 					} else {
+						order.stopped = true;
 						this.addOrderUnsafe(order)
 					}
 					priceMap.delete(orderId)
@@ -156,8 +158,10 @@ export class MatchingEngine {
 			if(priceOfStop > priceOfMarket) {
 				for(const [orderId, order] of priceMap) {
 					if(order.order.trade.t === OrderType.STOP) {
+						order.stopped = true;
 						await this.marketOrder(order)
 					} else {
+						order.stopped = true;
 						this.addOrderUnsafe(order)
 					}
 					priceMap.delete(orderId)
