@@ -175,7 +175,7 @@ export class MatchingEngine {
 		MatchingEngine.worker?.postMessage(
 			JSON.stringify({ type: 'book', data: { marketId: this.market.id, orders, stops } })
 		)
-		// this.bookInSync = true
+		this.bookInSync = true
 		return true
 	}
 
@@ -191,7 +191,13 @@ export class MatchingEngine {
 		for (const [priceOfStop, priceMap] of this.buyStops) {
 			if (priceOfStop < priceOfMarket) {
 				for (const [orderId, order] of priceMap) {
-					await this.marketOrder(order)
+					if (order.order.trade.t === OrderType.STOP) {
+						order.stopped = true
+						await this.marketOrder(order)
+					} else {
+						order.stopped = true
+						this.addOrderUnsafe(order)
+					}
 					priceMap.delete(orderId)
 				}
 			}
@@ -200,7 +206,13 @@ export class MatchingEngine {
 		for (const [priceOfStop, priceMap] of this.sellStops) {
 			if (priceOfStop > priceOfMarket) {
 				for (const [orderId, order] of priceMap) {
-					await this.marketOrder(order)
+					if (order.order.trade.t === OrderType.STOP) {
+						order.stopped = true
+						await this.marketOrder(order)
+					} else {
+						order.stopped = true
+						this.addOrderUnsafe(order)
+					}
 					priceMap.delete(orderId)
 				}
 			}
@@ -591,21 +603,27 @@ export class MatchingEngine {
 		const matchingOrders: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
-			const sellOrdersMap = this.sellOrders.get(price)
+			const pricesBelow = Array.from(this.sellOrders.keys()).filter(
+				(sellPrice) => sellPrice <= price
+			)
 
-			if (sellOrdersMap) {
-				const activeOrders = {
-					buy: [...buyOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-					sell: [...sellOrdersMap.values()].filter(
-						(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
-					),
-				}
+			for (const sellPrice of pricesBelow) {
+				const sellOrdersMap = this.sellOrders.get(sellPrice)
+				if (sellOrdersMap) {
+					const activeOrders = {
+						buy: [...buyOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+						sell: [...sellOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+					}
 
-				if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
-					const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
-					matchingOrders.push(...matchedOrders)
+					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
+						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
+						matchingOrders.push(...matchedOrders)
+						break
+					}
 				}
 			}
 		}
