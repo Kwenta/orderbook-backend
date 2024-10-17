@@ -142,7 +142,11 @@ export class MatchingEngine {
 		for(const [priceOfStop, priceMap] of this.buyStops) {
 			if(priceOfStop < priceOfMarket) {
 				for(const [orderId, order] of priceMap) {
-					await this.marketOrder(order)
+					if(order.order.trade.t === OrderType.STOP) {
+						await this.marketOrder(order)
+					} else {
+						this.addOrderUnsafe(order)
+					}
 					priceMap.delete(orderId)
 				}
 			}
@@ -151,7 +155,11 @@ export class MatchingEngine {
 		for(const [priceOfStop, priceMap] of this.sellStops) {
 			if(priceOfStop > priceOfMarket) {
 				for(const [orderId, order] of priceMap) {
-					await this.marketOrder(order)
+					if(order.order.trade.t === OrderType.STOP) {
+						await this.marketOrder(order)
+					} else {
+						this.addOrderUnsafe(order)
+					}
 					priceMap.delete(orderId)
 				}
 			}
