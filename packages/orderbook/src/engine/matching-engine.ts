@@ -640,7 +640,7 @@ export class MatchingEngine {
 				(sellPrice) => sellPrice >= price
 			)
 
-			for (const sellPrice of pricesBelow) {
+			for (const sellPrice of pricesAbove) {
 				const buyOrdersMap = this.buyOrders.get(sellPrice)
 				if (sellOrdersMap) {
 					const activeOrders = {
