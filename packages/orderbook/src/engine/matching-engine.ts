@@ -635,13 +635,13 @@ export class MatchingEngine {
 
 		this.pruneBook()
 
-		for (const [price, buyOrdersMap] of this.sellOrders) {
-			const pricesBelow = Array.from(this.buyOrders.keys()).filter(
-				(sellPrice) => sellPrice <= price
+		for (const [price, sellOrdersMap] of this.sellOrders) {
+			const pricesAbove = Array.from(this.buyOrders.keys()).filter(
+				(sellPrice) => sellPrice >= price
 			)
 
 			for (const sellPrice of pricesBelow) {
-				const sellOrdersMap = this.buyOrders.get(sellPrice)
+				const buyOrdersMap = this.buyOrders.get(sellPrice)
 				if (sellOrdersMap) {
 					const activeOrders = {
 						buy: [...buyOrdersMap.values()].filter(
