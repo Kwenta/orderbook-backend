@@ -1,0 +1,1 @@
+In order to see the documentation for the API, you can run the dev server (`pnpm run dev`) and go to the `/ui` endpoint to get both the documentation of the endpoints, and an easy way to run the commands!
