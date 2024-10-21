@@ -600,7 +600,8 @@ export class MatchingEngine {
 	async checkForPossibleSettles() {
 		// Don't check for settles if there have been on updates since last check
 		if (this.bookClean) return
-		const matchingOrders: LimitOrder[][] = []
+		const matchingOrdersBuy: LimitOrder[][] = []
+		const matchingOrdersSell: LimitOrder[][] = []
 
 		for (const [price, buyOrdersMap] of this.buyOrders) {
 			const pricesBelow = Array.from(this.sellOrders.keys()).filter(
@@ -621,20 +622,53 @@ export class MatchingEngine {
 
 					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
 						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
-						matchingOrders.push(...matchedOrders)
+						matchingOrdersBuy.push(...matchedOrders)
 						break
 					}
 				}
 			}
 		}
 
-		for (const orders of matchingOrders) {
+		for (const orders of matchingOrdersBuy) {
 			await this.settle(orders)
 		}
 
 		this.pruneBook()
 
-		return matchingOrders
+		for (const [price, sellOrdersMap] of this.sellOrders) {
+			const pricesAbove = Array.from(this.buyOrders.keys()).filter(
+				(sellPrice) => sellPrice >= price
+			)
+
+			for (const sellPrice of pricesAbove) {
+				const buyOrdersMap = this.buyOrders.get(sellPrice)
+				if (sellOrdersMap) {
+					const activeOrders = {
+						buy: [...buyOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+						sell: [...sellOrdersMap.values()].filter(
+							(order) => order.status === 'active' && !this.isOrderInPendingSettlement(order.id)
+						),
+					}
+
+					if (activeOrders.buy.length > 0 && activeOrders.sell.length > 0) {
+						const matchedOrders = this.matchOrders(activeOrders.buy, activeOrders.sell)
+						matchingOrdersSell.push(...matchedOrders)
+						break
+					}
+				}
+			}
+		}
+
+		for (const orders of matchingOrdersSell) {
+			await this.settle(orders)
+		}
+
+
+		this.pruneBook()
+
+		return [...matchingOrdersBuy, ...matchingOrdersSell]
 	}
 
 	private matchOrders(buyOrders: LimitOrder[], sellOrders: LimitOrder[]): LimitOrder[][] {
